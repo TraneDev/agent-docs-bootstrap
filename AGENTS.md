@@ -1,4 +1,4 @@
-# agent-docs-kit — agent instructions
+# agent-docs-bootstrap — agent instructions
 
 This is the kit's repository, not a project to document. First work out what is being asked:
 
@@ -12,9 +12,9 @@ Do exactly this:
 
 1. Find the target project's root: the directory with `.git`. If it was not named, ask — do not guess.
 2. Ask which harnesses the team uses if it is not clear: `claude`, `codex`, `opencode` (several are comma-separated, or `all`).
-3. From the project root: `node <path-to-kit>/install.mjs --target <targets> --yes`.
-4. Check the result: `<project>/.agent-docs-kit` starts with `version=`, and the skills and agents listed in `README.md` for those targets exist.
-5. Tell the human to commit `.agent-docs-kit` and the installed folders, then restart the agent session.
+3. From the project root: `npx agent-docs-bootstrap@<version> --target <targets> --yes`, or `node <path-to-kit>/install.mjs --target <targets> --yes` from a clone.
+4. Check the result: `<project>/.agent-docs-bootstrap` starts with `version=`, and the skills and agents listed in `README.md` for those targets exist.
+5. Tell the human to commit `.agent-docs-bootstrap` and the installed folders, then restart the agent session.
 
 Do not edit the kit's files during an install, do not create `docs/agents/` in the project (the skill does that on first run), and do not write anything to external documentation.
 
@@ -37,9 +37,9 @@ node install.mjs --project <dir> --uninstall
 - **Restrictions live in two places.** A limit set in a frontmatter block (tools, permissions) must also be stated in the prompt, because Codex has no per-subagent permissions and relies on the prompt alone. Change both together and keep the "Harness differences" table in `README.md` true.
 - **Invariants repeat on purpose** ("code says what, people say why", "do not judge the docs yourself", "only confirmed content is committed") in `docs-bootstrap`, `docs-check` and the agent prompts. Change all places at once.
 - **Harness-neutral wording.** Say "start the `docs-scout` subagent", not a tool name of one harness. Harness-specific facts belong in `README.md` or behind an explicit "in Claude Code…".
-- **Installed paths are owned through `.agent-docs-kit`.** The installer replaces or removes only paths listed there. Keep that guarantee when changing it.
+- **Installed paths are owned through `.agent-docs-bootstrap`.** The installer replaces or removes only paths listed there. Keep that guarantee when changing it.
 - **Third-party skills** (`skills/third-party/`) are never edited; the update procedure is in `THIRD_PARTY.md`.
 
 ### Changes and releases
 
-Every change gets a line under `[Unreleased]` in `CHANGELOG.md`. Versions follow semver: major — the format of files the kit writes into projects (`docs/agents/*`, install layout) changes; minor — skill or subagent behaviour changes; patch — wording and fixes. To release: bump `VERSION`, rename `[Unreleased]` to the version and date, commit, tag `vX.Y.Z`.
+Every change gets a line under `[Unreleased]` in `CHANGELOG.md`. Versions follow semver: major — the format of files the kit writes into projects (`docs/agents/*`, install layout) changes; minor — skill or subagent behaviour changes; patch — wording and fixes. To release: bump `version` in `package.json`, rename `[Unreleased]` to the version and date, commit, tag `vX.Y.Z`, push with tags, then a human runs `npm publish` (add `repository` and `homepage` to `package.json` once the GitHub repository exists).

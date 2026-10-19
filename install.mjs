@@ -1,6 +1,7 @@
 #!/usr/bin/env node
-// Install agent-docs-kit skills and subagents into a project (default) or your home directory.
+// Install agent-docs-bootstrap skills and subagents into a project (default) or your home directory.
 //
+//   cd <project> && npx agent-docs-bootstrap --target claude|codex|opencode|all[,…]
 //   cd <project> && node <kit>/install.mjs --target claude|codex|opencode|all[,…]
 //   node install.mjs --target … --project <path>      node install.mjs --target … --global
 //   flags: --scout-model <id>  --reader-model <id>  --yes  --uninstall  --help
@@ -9,7 +10,7 @@
 //   claude    skills → .claude/skills/   agents → .claude/agents/*.md
 //   codex     skills → .agents/skills/   agents → .codex/agents/*.toml
 //   opencode  skills → .agents/skills/   agents → .opencode/agents/*.md   commands → .opencode/commands/*.md
-// Installed paths are listed in .agent-docs-kit; only those are ever replaced or removed.
+// Installed paths are listed in .agent-docs-bootstrap; only those are ever replaced or removed.
 // No network access, no changes to harness settings, no admin rights.
 
 import fs from 'node:fs';
@@ -27,8 +28,8 @@ if (a.help) usage(0);
 
 const GLOBAL = !!a.global;
 const BASE = GLOBAL ? os.homedir() : path.resolve(a.project || process.cwd());
-const MARKER = path.join(BASE, '.agent-docs-kit');
-const VERSION = read(path.join(KIT, 'VERSION')).trim() || 'unknown';
+const MARKER = path.join(BASE, '.agent-docs-bootstrap');
+const VERSION = JSON.parse(read(path.join(KIT, 'package.json')) || '{}').version || 'unknown';
 const abs = (r) => path.join(BASE, r);
 const exists = (p) => { try { fs.lstatSync(p); return true; } catch { return false; } };
 
@@ -97,8 +98,8 @@ for (const t of targets) {
 const keep = oldList.filter(r => !installed.has(r) && exists(abs(r)));
 fs.writeFileSync(MARKER, [`version=${VERSION}`, ...keep, ...installed].join('\n') + '\n');
 
-console.log(`\nDone: agent-docs-kit ${VERSION}, ${targets.join(', ')}${GLOBAL ? ' (global)' : ''}.`);
-if (!GLOBAL) log(`commit the installed folders and .agent-docs-kit so the whole team gets the same version`);
+console.log(`\nDone: agent-docs-bootstrap ${VERSION}, ${targets.join(', ')}${GLOBAL ? ' (global)' : ''}.`);
+if (!GLOBAL) log(`commit the installed folders and .agent-docs-bootstrap so the whole team gets the same version`);
 log('restart the agent session so it picks up the new skills and subagents');
 log('start with the docs-bootstrap skill (Claude Code /docs-bootstrap, Codex $docs-bootstrap, OpenCode /docs-bootstrap)');
 
@@ -150,7 +151,7 @@ function skillDirs() {
 }
 function uninstall() {
   if (!oldList.length) die(`Nothing to remove: no ${MARKER}.`);
-  console.log(`Removing agent-docs-kit from ${BASE}`);
+  console.log(`Removing agent-docs-bootstrap from ${BASE}`);
   for (const r of oldList) if (exists(abs(r))) { fs.rmSync(abs(r), { recursive: true, force: true }); log(`removed ${r}`); }
   fs.rmSync(MARKER, { force: true });
   const dirs = new Set(oldList.flatMap(r => [path.dirname(r), path.dirname(path.dirname(r))]));
@@ -169,7 +170,8 @@ function parseArgs(argv) {
 }
 function usage(code, msg) {
   if (msg) console.error(msg + '\n');
-  console.log(read(fileURLToPath(import.meta.url)).split('\n').slice(1, 14).map(l => l.replace(/^\/\/ ?/, '')).join('\n'));
+  const src = read(fileURLToPath(import.meta.url)).split('\n').slice(1);
+  console.log(src.slice(0, src.findIndex(l => !l.startsWith('//'))).map(l => l.replace(/^\/\/ ?/, '')).join('\n'));
   process.exit(code);
 }
 function read(p) { try { return fs.readFileSync(p, 'utf8'); } catch { return ''; } }

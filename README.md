@@ -1,4 +1,4 @@
-# agent-docs-kit
+# agent-docs-bootstrap
 
 Skills and subagents that build reference documentation for a codebase — so that coding agents and new developers can work in it — and then **test** it with a fresh agent.
 
@@ -40,14 +40,15 @@ No LLM judges the plans: an LLM judge prefers the longer, more confident plan. T
 
 ## Install
 
-Requires Node.js 18+ for the installer. Clone the kit anywhere, then run the installer from your project root:
+Requires Node.js 18+ for the installer. Run it from your project root:
 
 ```bash
-git clone <this repo> ~/agent-docs-kit
 cd <your project>
-node ~/agent-docs-kit/install.mjs --target claude      # or codex, opencode, all, claude,codex
-git add .agent-docs-kit .claude && git commit -m "Add agent-docs-kit"
+npx agent-docs-bootstrap@0.1.0 --target claude      # or codex, opencode, all, claude,codex
+git add .agent-docs-bootstrap .claude && git commit -m "Add agent-docs-bootstrap"
 ```
+
+Pin the version: the whole team then installs the same one, and npx does not serve an older copy from its cache. Alternatively, clone the kit anywhere and run `node ~/agent-docs-bootstrap/install.mjs --target claude` from the project root.
 
 | Target | Skills | Subagents |
 |---|---|---|
@@ -55,7 +56,7 @@ git add .agent-docs-kit .claude && git commit -m "Add agent-docs-kit"
 | `codex` | `.agents/skills/` | `.codex/agents/*.toml` |
 | `opencode` | `.agents/skills/` | `.opencode/agents/*.md`, plus `/docs-bootstrap` and `/docs-check` commands |
 
-Files are copied, so they get committed and the whole team runs the same version. `.agent-docs-kit` lists what was installed; reinstalling replaces only those paths and never touches files the kit did not create. Remove everything with `--uninstall`.
+Files are copied, so they get committed and the whole team runs the same version. `.agent-docs-bootstrap` lists what was installed; reinstalling replaces only those paths and never touches files the kit did not create. Remove everything with `--uninstall`.
 
 Other flags: `--global` installs into your home directory instead of a project; `--scout-model <id>` and `--reader-model <id>` pin subagent models (by default they inherit the session model). A model flag applies to every target in that run, so to pin different models per harness, run the installer once per target.
 
@@ -93,7 +94,8 @@ skills/docs-bootstrap/   orchestrator: SKILL.md, references/ (formats, scout bri
 skills/docs-check/       the reader test
 skills/third-party/      skills by other authors, unmodified, each with its LICENSE
 agents/                  docs-scout, docs-reader: one prompt + per-harness frontmatter blocks
-install.mjs              installer
+package.json             npm package metadata and the version
+install.mjs              installer (the package's `bin`)
 scripts/check.mjs        repository checks (CI)
 ```
 

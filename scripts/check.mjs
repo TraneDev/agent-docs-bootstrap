@@ -3,7 +3,8 @@
 //
 // - every skill: SKILL.md frontmatter has name (= folder) and description; relative links resolve;
 // - every third-party skill ships its LICENSE and is listed in THIRD_PARTY.md;
-// - install.mjs works for every target into a temp project, and uninstall leaves nothing behind;
+// - the packed npm tarball (`npm pack`) keeps every third-party LICENSE, and its install.mjs works for every target
+//   into a temp project, and uninstall leaves nothing behind;
 // - generated agent files have the fields each harness requires;
 // - the docs-check Step 2 snapshot block, run on a temp git repo, copies exactly the current documents;
 // - no forbidden strings: patterns come from the FORBIDDEN_PATTERNS env var (one regex per line)
@@ -45,9 +46,21 @@ for (const base of [path.join(ROOT, 'skills'), thirdParty])
   }
 
 // ---------- install / uninstall for every target
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-docs-kit-check-'));
+const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-docs-bootstrap-check-'));
+const packed = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-docs-bootstrap-pack-'));
 try {
-  const install = (...args) => execFileSync(process.execPath, [path.join(ROOT, 'install.mjs'), '--project', tmp, '--yes', ...args], { stdio: ['ignore', 'ignore', 'pipe'] });
+  const win = process.platform === 'win32';
+  execFileSync(win ? 'npm.cmd' : 'npm', ['pack', '--pack-destination', packed], { cwd: ROOT, shell: win, stdio: ['ignore', 'ignore', 'pipe'] });
+  const tgz = fs.readdirSync(packed).filter(f => f.endsWith('.tgz'));
+  if (tgz.length !== 1) throw new Error(`npm pack produced [${tgz}], expected one .tgz`);
+  execFileSync('tar', ['-xzf', tgz[0]], { cwd: packed, stdio: ['ignore', 'ignore', 'pipe'] });
+  const pkg = path.join(packed, 'package');
+  for (const f of ['package.json', 'install.mjs']) if (!fs.existsSync(path.join(pkg, f))) err(`package: missing ${f}`);
+  for (const e of fs.readdirSync(thirdParty, { withFileTypes: true })) {
+    const l = path.join('skills', 'third-party', e.name, 'LICENSE');
+    if (e.isDirectory() && !fs.existsSync(path.join(pkg, l))) err(`package: missing ${l}`);
+  }
+  const install = (...args) => execFileSync(process.execPath, [path.join(pkg, 'install.mjs'), '--project', tmp, '--yes', ...args], { stdio: ['ignore', 'ignore', 'pipe'] });
   install('--target', 'all');
   const expect = {
     '.claude/skills/docs-bootstrap/SKILL.md': [], '.agents/skills/docs-check/SKILL.md': [],
@@ -58,7 +71,7 @@ try {
     '.opencode/agents/docs-reader.md': [/^mode: subagent$/m, /^permission:$/m],
     '.opencode/agents/docs-scout.md': [/^mode: subagent$/m],
     '.opencode/commands/docs-check.md': [/\$ARGUMENTS/],
-    '.agent-docs-kit': [/^version=\d+\.\d+\.\d+$/m],
+    '.agent-docs-bootstrap': [/^version=\d+\.\d+\.\d+$/m],
   };
   for (const [f, res] of Object.entries(expect)) {
     const p = path.join(tmp, f);
@@ -69,11 +82,11 @@ try {
   const left = walk(tmp);
   if (left.length) err(`uninstall left files behind: ${left.map(f => path.relative(tmp, f)).join(', ')}`);
 } catch (e) {
-  err(`install.mjs failed: ${e.stderr || e.message}`);
-} finally { fs.rmSync(tmp, { recursive: true, force: true }); }
+  err(`packed install.mjs failed: ${e.stderr || e.message}`);
+} finally { for (const d of [tmp, packed]) fs.rmSync(d, { recursive: true, force: true }); }
 
 // ---------- docs-check snapshot block (Step 2) produces the expected documents
-const snap = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-docs-kit-snap-'));
+const snap = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-docs-bootstrap-snap-'));
 try {
   const block = (read(path.join(ROOT, 'skills', 'docs-check', 'SKILL.md')).split(/^## Step 2\. Snapshot$/m)[1] || '').match(/```\n([\s\S]*?)```/);
   if (!block) throw new Error('no fenced block after "## Step 2. Snapshot" in skills/docs-check/SKILL.md');

@@ -4,7 +4,7 @@ Updated by the agent after every stage. One row per stage.
 
 Mode: `existing` | `new`  
 Documents language: <e.g. English>  
-agent-docs-kit version: <first line of `.agent-docs-kit`, if present>
+agent-docs-bootstrap version: <first line of `.agent-docs-bootstrap`, if present>
 
 | Stage | Status | Date | Comment |
 |---|---|---|---|

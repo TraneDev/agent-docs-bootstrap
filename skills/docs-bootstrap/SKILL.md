@@ -31,7 +31,7 @@ If the harness cannot start the `docs-scout` subagent, do the brief yourself but
 
 ## Stage 0. Session start
 
-1. Read `docs/agents/bootstrap-state.md`. No file → ask the questions below, create `docs/agents/` and copy the templates from [templates/](templates/) into it: `bootstrap-state.md`, `sources.md`, `reader-tests.md`. Create `docs/agents/scratch/` and add the line `docs/agents/scratch/` to the project's `.gitignore`. Record the mode, the documents language and the kit version (first line of `.agent-docs-kit` in the project root, if present) in the state file.
+1. Read `docs/agents/bootstrap-state.md`. No file → ask the questions below, create `docs/agents/` and copy the templates from [templates/](templates/) into it: `bootstrap-state.md`, `sources.md`, `reader-tests.md`. Create `docs/agents/scratch/` and add the line `docs/agents/scratch/` to the project's `.gitignore`. Record the mode, the documents language and the kit version (first line of `.agent-docs-bootstrap` in the project root, if present) in the state file.
 2. Find the first stage not marked `done` and continue from it. Do not start over if work has already begun.
 3. Tell the human which stage you are at and what you need from them now.
 
