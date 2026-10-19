@@ -5,6 +5,7 @@
 // - every third-party skill ships its LICENSE and is listed in THIRD_PARTY.md;
 // - install.mjs works for every target into a temp project, and uninstall leaves nothing behind;
 // - generated agent files have the fields each harness requires;
+// - the docs-check Step 2 snapshot block, run on a temp git repo, copies exactly the current documents;
 // - no forbidden strings: patterns come from the FORBIDDEN_PATTERNS env var (one regex per line)
 //   or the untracked file .forbidden-patterns, so the list itself never gets published.
 
@@ -70,6 +71,31 @@ try {
 } catch (e) {
   err(`install.mjs failed: ${e.stderr || e.message}`);
 } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
+
+// ---------- docs-check snapshot block (Step 2) produces the expected documents
+const snap = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-docs-kit-snap-'));
+try {
+  const block = (read(path.join(ROOT, 'skills', 'docs-check', 'SKILL.md')).split(/^## Step 2\. Snapshot$/m)[1] || '').match(/```\n([\s\S]*?)```/);
+  if (!block) throw new Error('no fenced block after "## Step 2. Snapshot" in skills/docs-check/SKILL.md');
+  const git = (...a) => execFileSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', ...a], { cwd: snap, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+  const put = (f, s) => { fs.mkdirSync(path.dirname(path.join(snap, f)), { recursive: true }); fs.writeFileSync(path.join(snap, f), s); };
+  git('init', '-q');
+  for (const f of ['docs/x.md', 'docs/removed-later.md', 'src/AGENTS.md', 'docs/agents/state.md', 'src/a.js']) put(f, 'x\n');
+  put('AGENTS.md', 'old\n');
+  git('add', '.'); git('commit', '-qm', 'parent');
+  const parent = git('rev-parse', 'HEAD');
+  git('rm', '-q', 'docs/removed-later.md', 'src/AGENTS.md'); git('commit', '-qm', 'drop docs');
+  put('AGENTS.md', 'new\n'); put('app/AGENTS.md', 'x\n'); put('docs/new-howto.md', 'x\n'); put('docs/ignored.log', 'x\n');
+  put('.gitignore', 'docs/*.log\n'); put('docs/agents/scratch/rt-0/plan.md', 'x\n');
+  execFileSync('sh', ['-c', block[1].replaceAll('<parent>', parent).replaceAll('<N>', '1')], { cwd: snap, stdio: ['ignore', 'ignore', 'pipe'] });
+  const root = path.join(snap, 'docs/agents/scratch/rt-1');
+  const got = walk(root).map(f => path.relative(root, f).split(path.sep).join('/')).filter(f => f !== '.gitignore').sort();
+  const want = ['AGENTS.md', 'app/AGENTS.md', 'docs/new-howto.md', 'docs/x.md', 'src/a.js'];
+  if (got.join() !== want.join()) err(`docs-check Step 2 snapshot has [${got}], expected [${want}]`);
+  else if (read(path.join(root, 'AGENTS.md')) !== 'new\n') err('docs-check Step 2 snapshot: AGENTS.md is not the working-tree version');
+} catch (e) {
+  err(`docs-check Step 2 snapshot check failed: ${e.stderr || e.message}`);
+} finally { fs.rmSync(snap, { recursive: true, force: true }); }
 
 // ---------- forbidden strings
 let patterns = process.env.FORBIDDEN_PATTERNS || '';

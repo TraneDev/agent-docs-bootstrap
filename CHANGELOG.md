@@ -10,3 +10,6 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versions follo
 - `install.mjs --target claude|codex|opencode|all`, project or global, with ownership tracking in `.agent-docs-kit`.
 - Bundled third-party skills with their licenses (`THIRD_PARTY.md`).
 - `scripts/check.mjs` and a GitHub Actions workflow.
+
+### Fixed
+- `docs-check`: the reader snapshot now takes the documents from the working tree. Before, `git archive HEAD` failed silently when any listed path (e.g. `CONTEXT-MAP.md`) was missing, so the reader saw no current documents and fixes were never rechecked. Documents deleted since the parent commit no longer reach the reader.

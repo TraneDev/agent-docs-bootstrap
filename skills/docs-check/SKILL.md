@@ -26,16 +26,19 @@ The task wording for the reader must not contain file names or hashes: only what
 
 ## Step 2. Snapshot
 
-The reader must not see the solution or the history: the code as it was before the task, with today's documents on top. For each task:
+The reader must not see the solution or the history: the code as it was before the task, with today's documents on top. "Today's" means the working tree, committed or not, so the fixes from step 5 reach the rerun without a commit. Do not keep unfinished hand edits in the documents during a run: the reader gets them as they are. For each task, from the project root:
 
 ```
-rm -rf docs/agents/scratch/rt-<N> && mkdir -p docs/agents/scratch/rt-<N>
-git archive <parent> | tar -x -C docs/agents/scratch/rt-<N>
-git archive HEAD AGENTS.md CLAUDE.md CONTEXT.md CONTEXT-MAP.md docs/ '**/AGENTS.md' '**/CONTEXT.md' 2>/dev/null | tar -x -C docs/agents/scratch/rt-<N>
-rm -rf docs/agents/scratch/rt-<N>/docs/agents
+R=docs/agents/scratch/rt-<N>
+rm -rf "$R" && mkdir -p "$R"
+git archive <parent> | tar -x -C "$R"
+rm -rf "$R/AGENTS.md" "$R/CLAUDE.md" "$R/CONTEXT.md" "$R/CONTEXT-MAP.md" "$R/docs"
+find "$R" \( -name AGENTS.md -o -name CONTEXT.md \) -type f -delete
+git ls-files -z --cached --others --exclude-standard -- AGENTS.md CLAUDE.md CONTEXT.md CONTEXT-MAP.md docs/ '**/AGENTS.md' '**/CONTEXT.md' ':(exclude)docs/agents' \
+  | tar --null -T - -cf - | tar -x -C "$R"
 ```
 
-`git archive` skips paths missing from HEAD; `docs/agents/` is removed so the reader does not see previous runs. The snapshot has no `.git` and no installed dependencies: the reader builds a plan, it does not execute it.
+The parent's documents are removed first, so a document deleted since then does not reach the reader. `git ls-files` lists tracked and new files and skips git-ignored ones and paths that do not exist; `docs/agents/` is excluded so the reader does not see previous runs. Do not hide errors with `2>/dev/null`: a `tar` warning about a missing file only means a tracked document was deleted and not yet committed. The snapshot has no `.git` and no installed dependencies: the reader builds a plan, it does not execute it.
 
 ## Step 3. Reader
 
