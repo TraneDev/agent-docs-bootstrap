@@ -1,0 +1,3 @@
+interface:
+  display_name: "Docs Check"
+  short_description: "Reader-test a project's docs"

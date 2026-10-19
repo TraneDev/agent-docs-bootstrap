@@ -1,0 +1,45 @@
+# agent-docs-kit — agent instructions
+
+This is the kit's repository, not a project to document. First work out what is being asked:
+
+- **install the kit into a project** → "Installing into a project", step by step;
+- **change the kit itself** (skills, subagents, installer, a release) → "Developing the kit";
+- **build or check a project's documentation** → that happens inside the project, with the `docs-bootstrap` or `docs-check` skill, not here.
+
+## Installing into a project
+
+Do exactly this:
+
+1. Find the target project's root: the directory with `.git`. If it was not named, ask — do not guess.
+2. Ask which harnesses the team uses if it is not clear: `claude`, `codex`, `opencode` (several are comma-separated, or `all`).
+3. From the project root: `node <path-to-kit>/install.mjs --target <targets> --yes`.
+4. Check the result: `<project>/.agent-docs-kit` starts with `version=`, and the skills and agents listed in `README.md` for those targets exist.
+5. Tell the human to commit `.agent-docs-kit` and the installed folders, then restart the agent session.
+
+Do not edit the kit's files during an install, do not create `docs/agents/` in the project (the skill does that on first run), and do not write anything to external documentation.
+
+## Developing the kit
+
+Skills and subagents are Markdown prompts with YAML frontmatter; the only code is `install.mjs` and `scripts/check.mjs`, both dependency-free Node 18+. Everything in the repository is written in English.
+
+```bash
+node scripts/check.mjs                         # all repository checks; CI runs the same
+node install.mjs --target all --project <dir> --yes
+node install.mjs --project <dir> --uninstall
+```
+
+`scripts/check.mjs` also scans for forbidden strings from the untracked file `.forbidden-patterns` (one regex per line) or the `FORBIDDEN_PATTERNS` variable. Keep that list out of git.
+
+### How it fits together
+
+- **Skills are the portable layer.** `skills/docs-bootstrap` and `skills/docs-check` are the entry points in every harness; there is no primary agent. Anything a harness-specific agent used to enforce must be stated in the skill text too.
+- **Subagents have one source.** `agents/<name>.md` holds `name`, `description`, a `claude-code: |` and an `opencode: |` block of raw frontmatter, and the prompt. `install.mjs` renders `.claude/agents/*.md`, `.opencode/agents/*.md` and `.codex/agents/*.toml` (prompt as `developer_instructions`). Prompts must not contain `'''`.
+- **Restrictions live in two places.** A limit set in a frontmatter block (tools, permissions) must also be stated in the prompt, because Codex has no per-subagent permissions and relies on the prompt alone. Change both together and keep the "Harness differences" table in `README.md` true.
+- **Invariants repeat on purpose** ("code says what, people say why", "do not judge the docs yourself", "only confirmed content is committed") in `docs-bootstrap`, `docs-check` and the agent prompts. Change all places at once.
+- **Harness-neutral wording.** Say "start the `docs-scout` subagent", not a tool name of one harness. Harness-specific facts belong in `README.md` or behind an explicit "in Claude Code…".
+- **Installed paths are owned through `.agent-docs-kit`.** The installer replaces or removes only paths listed there. Keep that guarantee when changing it.
+- **Third-party skills** (`skills/third-party/`) are never edited; the update procedure is in `THIRD_PARTY.md`.
+
+### Changes and releases
+
+Every change gets a line under `[Unreleased]` in `CHANGELOG.md`. Versions follow semver: major — the format of files the kit writes into projects (`docs/agents/*`, install layout) changes; minor — skill or subagent behaviour changes; patch — wording and fixes. To release: bump `VERSION`, rename `[Unreleased]` to the version and date, commit, tag `vX.Y.Z`.

@@ -1,0 +1,3 @@
+interface:
+  display_name: "Docs Bootstrap"
+  short_description: "Build reference docs for a codebase"
