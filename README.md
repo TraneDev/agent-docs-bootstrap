@@ -48,7 +48,7 @@ npx agent-docs-bootstrap@0.1.0 --target claude      # or codex, opencode, all, c
 git add .agent-docs-bootstrap .claude && git commit -m "Add agent-docs-bootstrap"
 ```
 
-Pin the version: the whole team then installs the same one, and npx does not serve an older copy from its cache. Alternatively, clone the kit anywhere and run `node ~/agent-docs-bootstrap/install.mjs --target claude` from the project root.
+Pin the version: the whole team then installs the same one, and npx does not serve an older copy from its cache. Alternatively, clone [the repository](https://github.com/TraneDev/agent-docs-bootstrap) anywhere and run `node ~/agent-docs-bootstrap/install.mjs --target claude` from the project root.
 
 | Target | Skills | Subagents |
 |---|---|---|
