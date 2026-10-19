@@ -7,6 +7,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versions follo
 ### Changed
 - README: quick start first, install from npm, a GitHub release tag or a clone, update and uninstall steps, all installer flags. `scripts/check.mjs` fails when a version pinned in the README differs from `package.json`.
 - README credits link to each third-party skill's source repository.
+- README title says what the kit gives you instead of repeating the package name.
 
 ## [0.1.0] - 2026-10-19
 

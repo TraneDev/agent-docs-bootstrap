@@ -1,12 +1,10 @@
-# agent-docs-bootstrap
+# Build docs your coding agents can work from, then prove they do
 
 [![npm](https://img.shields.io/npm/v/agent-docs-bootstrap)](https://www.npmjs.com/package/agent-docs-bootstrap)
 [![check](https://github.com/TraneDev/agent-docs-bootstrap/actions/workflows/check.yml/badge.svg)](https://github.com/TraneDev/agent-docs-bootstrap/actions/workflows/check.yml)
 [![license: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-Build reference documentation for a codebase so that coding agents and new developers can work in it. Then **test** it: a fresh agent plans real past tasks from your git history, and every gap against the real commit becomes a fix in the docs.
-
-Works with **Claude Code**, **Codex** and **OpenCode**.
+**agent-docs-bootstrap** is a set of skills and subagents for **Claude Code**, **Codex** and **OpenCode**. It interviews your team and writes the glossary, decision records, architecture, how-tos and `AGENTS.md` that coding agents and new developers need. Then it **tests** them: a fresh agent plans real past tasks from your git history, and every gap against the real commit becomes a fix in the docs.
 
 [Quick start](#quick-start) · [How it works](#how-it-works) · [Install options](#install-options) · [Harness differences](#harness-differences)
 
