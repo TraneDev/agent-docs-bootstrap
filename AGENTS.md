@@ -42,4 +42,4 @@ node install.mjs --project <dir> --uninstall
 
 ### Changes and releases
 
-Every change gets a line under `[Unreleased]` in `CHANGELOG.md`. Versions follow semver: major — the format of files the kit writes into projects (`docs/agents/*`, install layout) changes; minor — skill or subagent behaviour changes; patch — wording and fixes. To release: bump `version` in `package.json` and the pinned `npx agent-docs-bootstrap@<version>` in `README.md`, rename `[Unreleased]` to the version and date (keep an empty `[Unreleased]` above it), commit, tag `vX.Y.Z`, push with tags, then a human runs `npm publish`.
+Every change gets a line under `[Unreleased]` in `CHANGELOG.md`. Versions follow semver: major — the format of files the kit writes into projects (`docs/agents/*`, install layout) changes; minor — skill or subagent behaviour changes; patch — wording and fixes. To release: bump `version` in `package.json` and every pinned version in `README.md` (`check.mjs` fails on a mismatch), rename `[Unreleased]` to the version and date (keep an empty `[Unreleased]` above it), commit, tag `vX.Y.Z`, push with tags, then a human runs `npm publish`.

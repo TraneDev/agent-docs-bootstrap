@@ -7,6 +7,7 @@
 //   into a temp project, and uninstall leaves nothing behind;
 // - generated agent files have the fields each harness requires;
 // - the docs-check Step 2 snapshot block, run on a temp git repo, copies exactly the current documents;
+// - every version pinned in README.md equals the package.json version;
 // - no forbidden strings: patterns come from the FORBIDDEN_PATTERNS env var (one regex per line)
 //   or the untracked file .forbidden-patterns, so the list itself never gets published.
 
@@ -21,6 +22,11 @@ const errors = [];
 const err = (s) => errors.push(s);
 const read = (p) => fs.readFileSync(p, 'utf8');
 const rel = (p) => path.relative(ROOT, p);
+
+// ---------- README pins the current version
+const version = JSON.parse(read(path.join(ROOT, 'package.json'))).version;
+for (const [pin, v] of read(path.join(ROOT, 'README.md')).matchAll(/(?:agent-docs-bootstrap@|#v|--branch v)(\d+\.\d+\.\d+)/g))
+  if (v !== version) err(`README.md: ${pin} does not match package.json version ${version}`);
 
 // ---------- skills
 const thirdParty = path.join(ROOT, 'skills', 'third-party');
