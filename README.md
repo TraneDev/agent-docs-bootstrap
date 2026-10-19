@@ -175,7 +175,11 @@ To work on the kit itself, start with [AGENTS.md](AGENTS.md) and run `node scrip
 
 ## Credits
 
-The workflow builds on skills by other authors, bundled unmodified under their licenses (see [THIRD_PARTY.md](THIRD_PARTY.md)): Matt Pocock's `domain-modeling`, `grilling`, `grill-with-docs` and `writing-for-agents` (MIT), Georges Martin's `diataxis-audit` (MIT) and Anthropic's `doc-coauthoring` (Apache 2.0).
+The workflow builds on skills by other authors, bundled unmodified under their licenses. Pinned commits and update steps are in [THIRD_PARTY.md](THIRD_PARTY.md).
+
+- Matt Pocock, [mattpocock/skills](https://github.com/mattpocock/skills): `domain-modeling`, `grilling`, `grill-with-docs` and `writing-for-agents` (MIT).
+- Georges Martin, [jrjsmrtn/diataxis-skills](https://github.com/jrjsmrtn/diataxis-skills): `diataxis-audit` (MIT).
+- Anthropic, [anthropics/skills](https://github.com/anthropics/skills): `doc-coauthoring` (Apache 2.0).
 
 ## License
 
