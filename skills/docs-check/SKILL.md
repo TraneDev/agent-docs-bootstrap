@@ -1,79 +1,96 @@
 ---
 name: docs-check
-description: Reader test for project documentation — a fresh agent plans real past tasks on a history-free code snapshot with the current docs; its plan is compared with what the real commit changed, and every gap becomes a concrete doc fix. Use when the user asks to check or test a project's docs or AGENTS.md, or after notable changes. Stage 6 of docs-bootstrap runs it too.
+description: Reader test for project documentation — a fresh agent, started as a separate process, plans real past tasks on a history-free code snapshot with the current docs; its plan is compared with what the real commit changed, and the gaps become one list of doc fixes for the human to approve. Use when the user asks to check or test a project's docs or AGENTS.md, or after notable changes. Stage 6 of docs-bootstrap runs it too.
 ---
 
 # docs-check
 
 Checks whether an agent can work from the project's documentation, and turns what it misses into fixes. The reference is what the real commit changed, not your opinion: you organise the test and compare against the reference, you do not judge whether the documentation is good and do not defend it.
 
-No `docs/agents/` → the project was not built with `docs-bootstrap`. Create `docs/agents/reader-tests.md` from the `docs-bootstrap` template (`templates/reader-tests.md`) and `docs/agents/scratch/` (add `docs/agents/scratch/` to `.gitignore`): hand-written documentation can be checked too.
+No `docs/agents/` → the project was not built with `docs-bootstrap`. Create `docs/agents/reader-tests.md` from the `docs-bootstrap` template (`templates/reader-tests.md`) and add `docs/agents/scratch/` to `.gitignore`: hand-written documentation can be checked too.
 
 ## Step 1. Tasks
 
-Three tasks in `reader-tests.md` → step 2.
+Three tasks with status `ready` in `reader-tests.md` → leak check below, then step 2. A task marked `used` was the source of earlier fixes: the documents now hold its answer, so it tests nothing. Replace it.
 
-None → start the `docs-scout` subagent with the brief "Reader test task candidates" from `docs-bootstrap/references/scout-briefs.md`. Then ask the human once who picks the tasks, with this warning:
+Missing tasks → start the `docs-scout` subagent with the brief "Reader test task candidates" from `docs-bootstrap/references/scout-briefs.md`. Pick three from different areas yourself, preferring candidates with a clear commit message, a test in the diff and no unrelated files in `--stat`. Do not stop to ask the human: they see the tasks with the results in step 5 and can strike out what came from a poor commit.
 
-> I can pick three tasks myself, or you can choose them from the candidates — about 10 minutes. Your choice makes the check more accurate: you know which tasks are typical for the project, can word them like a real ticket, and can drop commits the team would not repeat today (later reverted, or mixed with unrelated changes). Without that, some gaps may be false: the reader gets compared with a commit that is a poor example, not with good practice.
+Record in `reader-tests.md`: commit hash, parent commit, task wording, reference, status `ready`.
 
-- **User** → show the candidates grouped by area; they pick three from different areas and may reword them.
-- **Agent** → pick three from different areas yourself, preferring candidates with a clear commit message, a test in the diff and no unrelated files in `--stat`. Show the human the three tasks before running; they may swap any of them.
+**Wording.** What a developer would understand without the ticket: what to do and where the user sees it. No file names, hashes, ticket numbers or tracker links. The reader gets it word for word.
 
-Record in `reader-tests.md`: who chose the tasks, commit hash, parent commit, task wording, expected files and commands from `--stat` and CI.
+**Reference.** Files and areas of code and tests from `git show --stat <hash>`, without unrelated changes in the commit. Verification commands only if the reader can find them in the repository (package scripts, CI jobs that run locally). No documentation files, CI scans or deploys: the reader cannot name them.
 
-The task wording for the reader must not contain file names or hashes: only what a developer would see in a ticket.
+**Leak check.** Before every run, take from `git show <hash>` the names the solution introduced: new files, classes, functions, endpoints, keys. Search for them:
 
-## Step 2. Snapshot
+- in the parent's code (`git grep <name> <parent>`) → found: the solution is already in the snapshot. Mark the task `replaced` and pick another;
+- in the current documents (`AGENTS.md`, `CLAUDE.md`, `CONTEXT*.md`, `docs/`) → found: the documents already know the answer and the task tests nothing. Mark it `used` and pick another.
 
-The reader must not see the solution or the history: the code as it was before the task, with today's documents on top. "Today's" means the working tree, committed or not, so the fixes from step 5 reach the rerun without a commit. Do not keep unfinished hand edits in the documents during a run: the reader gets them as they are. For each task, from the project root:
+## Steps 2–3. Snapshot and reader
 
-```
-R=docs/agents/scratch/rt-<N>
-rm -rf "$R" && mkdir -p "$R"
-git archive <parent> | tar -x -C "$R"
-rm -rf "$R/AGENTS.md" "$R/CLAUDE.md" "$R/CONTEXT.md" "$R/CONTEXT-MAP.md" "$R/docs"
-find "$R" \( -name AGENTS.md -o -name CONTEXT.md \) -type f -delete
-git ls-files -z --cached --others --exclude-standard -- AGENTS.md CLAUDE.md CONTEXT.md CONTEXT-MAP.md docs/ '**/AGENTS.md' '**/CONTEXT.md' ':(exclude)docs/agents' \
-  | tar --null -T - -cf - | tar -x -C "$R"
-```
+The reader must not see the solution, the history, your session's instructions or the project's own repository. So it runs as a **separate process** of your harness, in a snapshot **outside the repository**, never as a subagent of this session: a subagent shares the session's working directory, where the solution sits in the current code. The kit's script builds the snapshot and starts the reader the same way in bash, PowerShell and cmd.
 
-The parent's documents are removed first, so a document deleted since then does not reach the reader. `git ls-files` lists tracked and new files and skips git-ignored ones and paths that do not exist; `docs/agents/` is excluded so the reader does not see previous runs. Do not hide errors with `2>/dev/null`: a `tar` warning about a missing file only means a tracked document was deleted and not yet committed. The snapshot has no `.git` and no installed dependencies: the reader builds a plan, it does not execute it.
+1. Write the run's tasks to `docs/agents/scratch/reader-runs/<date>/tasks.json`:
 
-## Step 3. Reader
+   ```json
+   { "tasks": [ { "n": 1, "parent": "<parent>", "task": "<wording from reader-tests.md>" } ] }
+   ```
 
-For each task a **new** `docs-reader` subagent (fresh context, knows nothing of the previous ones). Brief:
+2. Run the script once per task from the project root, with `--harness` set to the harness you are running in (`claude`, `codex` or `opencode`). The three runs are independent: start them in parallel if your harness can, one at a time only if the model provider rate-limits parallel requests. A reader takes several minutes: if your shell tool has a timeout, set it to 15 minutes.
 
-> Project directory: `<absolute path to rt-N>`. Work only inside it.
-> Task: `<wording from reader-tests.md>`
-> Make a plan: files, changes, verification commands. Do not edit anything. Separately list everything you had to search the code for or guess, and your questions to the team.
+   ```
+   node <skills>/docs-check/scripts/reader-run.mjs docs/agents/scratch/reader-runs/<date> <N> --harness <harness>
+   ```
 
-Not a word about this being a test, about the documentation being new, or about having to cite it. Save the reader's answer to `docs/agents/scratch/rt-<N>/plan-<date>.md`.
+   `<skills>` is where this skill is installed: `.claude/skills` or `.agents/skills`. Write the command exactly like this, with forward slashes and without `cd`, `&&`, pipes or redirects, so it works in any shell. For a global install, add `--reader <path to the installed docs-reader>`.
 
-The harness cannot start the `docs-reader` subagent → do not play the reader yourself: you have seen the docs and the history. Ask the human to start a new agent session with its working directory set to the snapshot, paste the brief above, and save the answer to the plan file.
+What the script does:
+
+- the snapshot is the parent's code without the documents and the kit's installed files, with the current documents from the working tree on top, committed or not (git-ignored and deleted ones are skipped, `docs/agents/` never goes in). Do not keep unfinished hand edits in the documents during a run: the reader gets them as they are;
+- the snapshot gets an empty `git init`, which stops the harness from loading `AGENTS.md` or `CLAUDE.md` from parent directories. No installed dependencies: the reader builds a plan, it does not execute it;
+- the reader: Claude Code `claude -p --restricted` with only `Read`, `Grep`, `Glob` and no MCP servers; Codex `codex exec -s read-only` with no MCP servers; OpenCode `opencode run --pure` with the `docs-reader` agent and its permissions. The prompt is the installed `docs-reader`, the task goes through stdin;
+- it writes `rt-<N>-plan.md` and `rt-<N>-log.md` to the run directory and prints a three-line summary.
+
+Non-zero exit or "plan EMPTY" → show the human the summary and `rt-<N>-log.md`; do not guess. A plan that cites files outside the snapshot, the history, a tracker or external docs is invalid: note why in `reader-tests.md` and rerun.
+
+The user's global instructions (`~/.claude/CLAUDE.md`, `~/.codex/AGENTS.md`, `~/.config/opencode/AGENTS.md`) cannot be switched off this way. If they are about this project, ask the human to move them aside for the test.
+
+No `node`, or the harness CLI is not in PATH → do not play the reader yourself: you have seen the docs and the history. Run the script with `--snapshot-only` (it prints the snapshot path) and ask the human to start a new agent session with its working directory set to that path, paste the `docs-reader` prompt and the task, and save the answer to `rt-<N>-plan.md`.
 
 ## Step 4. Gaps
 
 Compare each plan with the reference in `reader-tests.md`. Each of these is a gap, written down as is, without interpretation:
 
-- an expected file or area is not named in the plan;
+- an expected file or area is not named in the plan (a named directory of the area counts);
 - an expected verification command is not named;
 - a term listed under `_Avoid_` in the glossary is used (if `CONTEXT.md` exists);
 - a directory outside the expected areas is proposed for change;
 - a solution rejected in an ADR is proposed (if `docs/adr/` exists);
 - an item under "had to search" whose answer is or should be in the documents.
 
-"Had to search" items that only a human can answer (product clarifications) are not gaps but are kept: they are candidates for how-tos and `AGENTS.md`.
+Not gaps, but kept:
+
+- "had to search" items only a human can answer (product clarifications) — candidates for how-tos and `AGENTS.md`;
+- **snapshot artifacts** — the documents describe a newer layout than the parent's code (a moved directory, a new test runner). Many of them mean the task is too old: replace it next time.
+
+An item where the reader says it found the answer in the documents is not a "had to search" item.
 
 ## Step 5. Fixes
 
-Each gap → a concrete fix: a line in `AGENTS.md`, a how-to, a glossary term. Show the list to the human. If the agent chose the tasks, say that some gaps may come from the commit itself rather than the docs, and let the human strike those out. After "ok", apply the fixes and rerun the same task (steps 2–4). Repeat until the plan has no gaps or the human stops.
+**One list, no rerun loop.**
+
+1. Group the gaps by the document that should hold the answer (`AGENTS.md`, glossary, a how-to, an ADR). For each fix, the gap it closes and the task it came from. Write a fix as general project knowledge ("new pages are registered in …"), not as this task's solution. A fix never contains passwords, tokens or keys: only where to get them. Product questions go to a separate block as open questions, not fixes.
+2. Show the list with the three tasks and their commits. Say that some gaps may come from the commit rather than the docs (a commit the team would not repeat today, unrelated changes), and let the human strike those out. This is the only stop in the check.
+3. Apply the approved fixes. Mark each task the documents were fixed for as `used`: they now hold its answer.
+4. Do not rerun the same task to "confirm" the fix: it will pass because the answer is now in the documents, which proves nothing. The next check on new tasks shows whether the docs got better.
 
 Add a row to the runs table in `reader-tests.md`: date, task, gaps found, fixes applied.
 
-Report to the human: per task, the gaps found and the fixes applied, plus the "only a human knows" items as documentation candidates.
+Report to the human: per task, the gaps and the applied fixes, the open questions, and when to check again — after a few weeks of team work or notable changes, on new tasks.
 
 ## Never
 
 - Ask any agent to judge the plans or the documentation instead of comparing with the reference: an LLM judge prefers the longer, more confident plan.
-- Show the reader a repository with `.git` or mention the history.
+- Start the reader as a subagent of this session, from inside the repository, or with your own commands instead of `reader-run.mjs`.
+- Show the reader a repository with `.git`, a tracker link, or mention the history.
+- Rerun a task after fixing the documents for it.

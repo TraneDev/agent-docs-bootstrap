@@ -9,7 +9,7 @@ Determine the stack from manifests and configs, not from file extensions. Look a
 Return these sections:
 
 1. **Stack** — language, frameworks, versions, monorepo or not, build and test tools. One line per item with evidence.
-2. **Commands** — build, tests (unit / e2e), lint, typecheck, local run. Source of each: manifest, CI, README. Run lint, typecheck and build; for each command: `ran` with the first line of output, or `failed` with the error. Do not run tests.
+2. **Commands** — build, tests (unit / e2e), lint, typecheck, local run. Source of each: manifest, CI, README. If `docs/agents/scratch/build-checks.md` exists and the manifests and lock files have not changed since its date (`git log -1 --format=%cs -- <manifest> <lock file>`), return the results from it and do not run the build again. Otherwise run lint, typecheck and build, each once; for each command: `ran` with the first line of output, `failed` with the error, or `not allowed` if the harness refused it. Write them to `build-checks.md`: date, command, result. Do not run tests.
 3. **Existing documents** — `README*`, `AGENTS.md`, `CLAUDE.md`, `CONTEXT*.md`, `docs/**`, `docs/adr/**`, header comments in key files. Path, size, what it covers.
 4. **Hot spots** — top 15 directories by commit count over 12 months (`git log --since=... --name-only`), with counts.
 5. **Boundaries** — import rules in linters, module boundaries, dependency rules. What may not depend on what.
@@ -69,6 +69,8 @@ Used by the `docs-check` skill when `reader-tests.md` has no tasks.
 
 Find 8–10 commits or merged PRs from the last 6–12 months matching: 2–8 files changed, 30–300 lines, one author, a meaningful message (not `fix`, not `wip`), changes in two or more layers (component + service, route + model), a test or verification command in the diff. Exclude refactorings, dependency bumps, config tweaks, framework version migrations. Look only at metadata and `--stat`: `git log --since --numstat`, `git show --stat`; do not open full diffs.
 
-For each return: hash and date; parent commit; task wording from the commit message; expected files and areas from `--stat`; verification commands from the diff or CI; project area. Group by area so that three can be picked from different ones.
+Exclude commits whose new files from `--stat` are already mentioned in the repository's documents (`AGENTS.md`, `CLAUDE.md`, `CONTEXT*.md`, `docs/`): the documents know their answer.
+
+For each return: hash and date; parent commit; task wording from the commit message — without file names, hashes, ticket numbers or tracker links; a flag if the message does not say which object to change; expected files and areas of code and tests from `--stat`, without documentation files; verification commands from the package manifest or CI that run locally; project area. Group by area so that three can be picked from different ones.
 
 Write to `docs/agents/scratch/reader-test-candidates.md`; return one line with the number of candidates.

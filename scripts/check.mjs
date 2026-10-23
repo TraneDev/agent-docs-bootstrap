@@ -6,7 +6,7 @@
 // - the packed npm tarball (`npm pack`) keeps every third-party LICENSE, and its install.mjs works for every target
 //   into a temp project, and uninstall leaves nothing behind;
 // - generated agent files have the fields each harness requires;
-// - the docs-check Step 2 snapshot block, run on a temp git repo, copies exactly the current documents;
+// - docs-check's reader-run.mjs --snapshot-only, run on a temp git repo, builds the parent's code plus exactly the current documents;
 // - every version pinned in README.md equals the package.json version;
 // - no forbidden strings: patterns come from the FORBIDDEN_PATTERNS env var (one regex per line)
 //   or the untracked file .forbidden-patterns, so the list itself never gets published.
@@ -74,7 +74,8 @@ try {
     '.claude/agents/docs-scout.md': [/^name: docs-scout$/m, /^disallowedTools: /m],
     '.codex/agents/docs-reader.toml': [/^name = "docs-reader"$/m, /^description = "/m, /^developer_instructions = '''$/m],
     '.codex/agents/docs-scout.toml': [/^name = "docs-scout"$/m],
-    '.opencode/agents/docs-reader.md': [/^mode: subagent$/m, /^permission:$/m],
+    '.opencode/agents/docs-reader.md': [/^mode: all$/m, /^  "\*": deny$/m],
+    '.agents/skills/docs-check/scripts/reader-run.mjs': [],
     '.opencode/agents/docs-scout.md': [/^mode: subagent$/m],
     '.opencode/commands/docs-check.md': [/\$ARGUMENTS/],
     '.agent-docs-bootstrap': [/^version=\d+\.\d+\.\d+$/m],
@@ -91,30 +92,30 @@ try {
   err(`packed install.mjs failed: ${e.stderr || e.message}`);
 } finally { for (const d of [tmp, packed]) fs.rmSync(d, { recursive: true, force: true }); }
 
-// ---------- docs-check snapshot block (Step 2) produces the expected documents
+// ---------- docs-check snapshot (reader-run.mjs --snapshot-only) holds the parent's code and the current documents
 const snap = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-docs-bootstrap-snap-'));
+let built = '';
 try {
-  const block = (read(path.join(ROOT, 'skills', 'docs-check', 'SKILL.md')).split(/^## Step 2\. Snapshot$/m)[1] || '').match(/```\n([\s\S]*?)```/);
-  if (!block) throw new Error('no fenced block after "## Step 2. Snapshot" in skills/docs-check/SKILL.md');
   const git = (...a) => execFileSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', ...a], { cwd: snap, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
   const put = (f, s) => { fs.mkdirSync(path.dirname(path.join(snap, f)), { recursive: true }); fs.writeFileSync(path.join(snap, f), s); };
   git('init', '-q');
-  for (const f of ['docs/x.md', 'docs/removed-later.md', 'src/AGENTS.md', 'docs/agents/state.md', 'src/a.js']) put(f, 'x\n');
-  put('AGENTS.md', 'old\n');
+  for (const f of ['docs/x.md', 'docs/removed-later.md', 'src/AGENTS.md', 'docs/agents/state.md', 'src/a.js', '.claude/skills/docs-check/SKILL.md']) put(f, 'x\n');
+  put('AGENTS.md', 'old\n'); put('.agent-docs-bootstrap', 'version=0.0.0\n.claude/skills/docs-check\n');
   git('add', '.'); git('commit', '-qm', 'parent');
   const parent = git('rev-parse', 'HEAD');
-  git('rm', '-q', 'docs/removed-later.md', 'src/AGENTS.md'); git('commit', '-qm', 'drop docs');
+  git('rm', '-q', 'docs/removed-later.md', 'src/AGENTS.md'); put('src/b.js', 'x\n'); git('add', '.'); git('commit', '-qm', 'solution');
   put('AGENTS.md', 'new\n'); put('app/AGENTS.md', 'x\n'); put('docs/new-howto.md', 'x\n'); put('docs/ignored.log', 'x\n');
-  put('.gitignore', 'docs/*.log\n'); put('docs/agents/scratch/rt-0/plan.md', 'x\n');
-  execFileSync('sh', ['-c', block[1].replaceAll('<parent>', parent).replaceAll('<N>', '1')], { cwd: snap, stdio: ['ignore', 'ignore', 'pipe'] });
-  const root = path.join(snap, 'docs/agents/scratch/rt-1');
-  const got = walk(root).map(f => path.relative(root, f).split(path.sep).join('/')).filter(f => f !== '.gitignore').sort();
+  put('.gitignore', 'docs/*.log\n'); put('docs/agents/scratch/runs/tasks.json', JSON.stringify({ tasks: [{ n: 1, parent, task: 'x' }] }));
+  built = execFileSync(process.execPath, [path.join(ROOT, 'skills', 'docs-check', 'scripts', 'reader-run.mjs'), 'docs/agents/scratch/runs', '1', '--snapshot-only'],
+    { cwd: snap, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+  const got = walk(built).map(f => path.relative(built, f).split(path.sep).join('/')).sort();
   const want = ['AGENTS.md', 'app/AGENTS.md', 'docs/new-howto.md', 'docs/x.md', 'src/a.js'];
-  if (got.join() !== want.join()) err(`docs-check Step 2 snapshot has [${got}], expected [${want}]`);
-  else if (read(path.join(root, 'AGENTS.md')) !== 'new\n') err('docs-check Step 2 snapshot: AGENTS.md is not the working-tree version');
+  if (got.join() !== want.join()) err(`docs-check snapshot has [${got}], expected [${want}]`);
+  else if (read(path.join(built, 'AGENTS.md')) !== 'new\n') err('docs-check snapshot: AGENTS.md is not the working-tree version');
+  if (!fs.existsSync(path.join(built, '.git'))) err('docs-check snapshot: no empty git repository');
 } catch (e) {
-  err(`docs-check Step 2 snapshot check failed: ${e.stderr || e.message}`);
-} finally { fs.rmSync(snap, { recursive: true, force: true }); }
+  err(`docs-check snapshot check failed: ${e.stderr || e.message}`);
+} finally { for (const d of [snap, built && path.dirname(built)]) if (d) fs.rmSync(d, { recursive: true, force: true }); }
 
 // ---------- forbidden strings
 let patterns = process.env.FORBIDDEN_PATTERNS || '';

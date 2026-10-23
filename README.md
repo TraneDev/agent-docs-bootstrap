@@ -4,7 +4,7 @@
 [![check](https://github.com/TraneDev/agent-docs-bootstrap/actions/workflows/check.yml/badge.svg)](https://github.com/TraneDev/agent-docs-bootstrap/actions/workflows/check.yml)
 [![license: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-**agent-docs-bootstrap** is a set of skills and subagents for **Claude Code**, **Codex** and **OpenCode**. It interviews your team and writes the glossary, decision records, architecture, how-tos and `AGENTS.md` that coding agents and new developers need. Then it **tests** them: a fresh agent plans real past tasks from your git history, and every gap against the real commit becomes a fix in the docs.
+**agent-docs-bootstrap** is a set of skills and subagents for **Claude Code**, **Codex** and **OpenCode**. It interviews your team and writes the glossary, decision records, architecture, how-tos and `AGENTS.md` that coding agents and new developers need. Then it **tests** them: a fresh agent plans real past tasks from your git history, and what it misses against the real commit becomes a list of doc fixes for you to approve.
 
 [Quick start](#quick-start) · [How it works](#how-it-works) · [Install options](#install-options) · [Harness differences](#harness-differences)
 
@@ -67,19 +67,20 @@ Whether the documentation helps an agent is answered with an experiment, not an 
 
 ```mermaid
 flowchart LR
-    A[Past task from git history] --> B[Snapshot: code before the task plus today's docs, no .git]
-    B --> C[Fresh docs-reader plans the task]
+    A[Past task from git history] --> B[Snapshot outside the repo: code before the task plus today's docs]
+    B --> C[Fresh reader process plans the task]
     C --> D{Compare with the real commit}
-    D -- gaps --> E[Fix the docs]
-    E --> B
-    D -- no gaps --> F[Done]
+    D --> E[One list of doc fixes]
+    E --> F[You approve, fixes applied]
 ```
 
-1. Three real past tasks are taken from git history. The agent picks them, or you pick them from its candidates: about 10 minutes, and the check gets more accurate.
-2. For each task, the code is extracted **as it was before the task**, and your current documents from the working tree go on top.
-3. A fresh `docs-reader` subagent with no history, no git and no edit rights plans the task.
+1. The agent picks three real past tasks from git history and drops any whose solution is already in the code or the docs.
+2. For each task, the code is extracted **as it was before the task**, outside your repository, and your current documents from the working tree go on top.
+3. A fresh reader plans the task. It runs as a **separate process** of your harness (`claude -p`, `codex exec`, `opencode run`), read-only, with no history, no MCP servers and no access to your repository: a subagent of the same session could find the solution in your current code.
 4. Its plan is compared with what the real commit changed. Missed files, missed verification commands, wrong terms, rejected approaches and guesses are **gaps**.
-5. Each gap becomes a concrete fix in the docs, and the task is rerun until the plan has none.
+5. The gaps become one list of fixes, grouped by document. You strike out what came from a poor commit rather than the docs, and the rest is applied.
+
+The same tasks are not rerun after the fixes: the docs now hold their answers, so a rerun would pass without proving anything. The next check runs on new tasks.
 
 No LLM judges the plans, because an LLM judge prefers the longer, more confident plan. The real commit is the reference.
 
@@ -88,6 +89,7 @@ No LLM judges the plans, because an LLM judge prefers the longer, more confident
 - **Code says "what", people say "why".** Reasons for decisions, canonical terms and boundaries come only from a human. The agent asks; it does not invent.
 - **Only confirmed content is committed.** Scout drafts stay in a git-ignored scratch folder.
 - **Existing docs are extended, never overwritten.**
+- **Secrets never reach the docs.** Passwords, tokens and keys are not written down, only where to get them.
 
 ## Install options
 
@@ -146,12 +148,12 @@ Files are copied into the project, not linked, so they get committed with it.
 
 ## Harness differences
 
-The protocol is the same everywhere; how strictly each harness can enforce the subagent limits is not.
+The protocol is the same everywhere; how strictly each harness can enforce the limits is not.
 
 | Guarantee | Claude Code | Codex | OpenCode |
 |---|---|---|---|
-| Reader cannot see git history | Snapshot has no `.git` | Snapshot has no `.git` | Snapshot has no `.git` + read deny |
-| Reader cannot edit or run commands | Tool allowlist (`Read, Grep, Glob`) | Instructions only | Permissions |
+| Reader cannot see the solution or history | Snapshot outside the repo, no history; `--restricted` keeps file tools inside it | Snapshot outside the repo, no history | Snapshot outside the repo, no history; `external_directory: deny` |
+| Reader cannot edit or run commands | `--restricted --tools Read,Grep,Glob` | `-s read-only` sandbox | Permissions (`"*": deny`) |
 | Scout writes only to the scratch folder | Instructions (edit tool removed) | Instructions only | Path permissions |
 | External docs are never modified | Instructions | Instructions | Instructions |
 
@@ -161,7 +163,7 @@ Where a guarantee is "instructions only", tighten it with your harness's own per
 
 ```text
 skills/docs-bootstrap/   orchestrator: SKILL.md, references/ (formats, scout briefs), templates/
-skills/docs-check/       the reader test
+skills/docs-check/       the reader test: SKILL.md, scripts/reader-run.mjs (snapshot and reader process)
 skills/third-party/      skills by other authors, unmodified, each with its LICENSE
 agents/                  docs-scout, docs-reader: one prompt + per-harness frontmatter blocks
 package.json             npm package metadata and the version

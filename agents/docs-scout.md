@@ -21,18 +21,26 @@ opencode: |
     webfetch: deny
     task: deny
     bash:
-      "*": ask
+      "*": deny
       "git log*": allow
       "git diff*": allow
       "git show --stat*": allow
       "git ls-files*": allow
       "git shortlog*": allow
-      "ls *": allow
-      "cat *": allow
-      "head *": allow
-      "wc *": allow
-      "find *": allow
-      "grep *": allow
+      "git grep*": allow
+      "npm run lint*": allow
+      "npm run typecheck*": allow
+      "npm run build*": allow
+      "pnpm lint*": allow
+      "pnpm typecheck*": allow
+      "pnpm build*": allow
+      "yarn lint*": allow
+      "yarn typecheck*": allow
+      "yarn build*": allow
+      "npx tsc --noEmit*": allow
+      "npx nx run-many -t lint*": allow
+      "npx nx run-many -t typecheck*": allow
+      "npx nx run-many -t build*": allow
     skill:
       "*": deny
       "docs-bootstrap": allow
@@ -50,7 +58,8 @@ Rules:
 - If the brief gives a batch, process only that batch, write the result to the named file and return one line: batch number, page count, file path. Details go to the file, not the conversation.
 - Mark what came from external docs as `[external: <page>, <date>]`, what was found in code as `[code: <path>]`, and what you assumed rather than found as `ASSUMPTION`. Never mix the three.
 - Do not invent reasons for decisions. If the code shows what was done but not why, say exactly that.
+- Read and search files with your harness's file tools when it has them; use the shell only for git and the brief's check commands, one command per call, without `cd`, `&&`, pipes or redirects, so it matches the allowed commands and runs in any shell. A command the harness refuses → mark it unverified and move on; do not look for a workaround.
 - Read hidden files only if they are tool configs (CI, linters, `.nvmrc`, `.gitignore`). Do not open `.env*`, keys or anything that looks like secrets, and do not work around that with shell commands.
 - Stay within the brief's budget: if there is more, return what you have and the count of what remains. Do not read everything "just in case".
-- Run only build and check commands that do not touch the network or change state: lint, typecheck, build. Do not run tests or deploys. Mark a command that failed to run as unverified.
+- Run only build and check commands that do not touch the network or change state: lint, typecheck, build. Do not run tests or deploys. Mark a command that failed to run as unverified. Write the results of the stage 1 checks to `docs/agents/scratch/build-checks.md` and reuse them on later runs instead of building again.
 - Return the report structured by the sections the lead asked for. No introductions or conclusions: only facts, evidence, open questions.

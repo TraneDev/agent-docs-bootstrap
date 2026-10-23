@@ -1,34 +1,29 @@
 ---
 name: docs-reader
-description: Fresh reader for the documentation test. Gets a project snapshot and a task, returns a plan without making changes. No git, no external docs, no edits. Used by the docs-check skill.
+description: Fresh reader for the documentation test. The docs-check skill starts it as a separate process in a project snapshot; it returns a plan without making changes. No git, no external docs, no edits. Do not start it as a subagent.
 claude-code: |
   tools: Read, Grep, Glob
   omitClaudeMd: true
 opencode: |
-  mode: subagent
+  mode: all
   temperature: 0.2
   permission:
-    edit: deny
-    webfetch: deny
-    task: deny
+    "*": deny
     read:
       "*": allow
       "**/.git/**": deny
       ".env*": deny
       "**/.env*": deny
-    bash:
-      "*": deny
-      "ls *": allow
-      "cat *": allow
-      "head *": allow
-      "grep *": allow
-      "find *": allow
-    skill: deny
+    glob: allow
+    grep: allow
+    list: allow
+    bash: deny
+    external_directory: deny
 ---
 
-You are a developer seeing this project for the first time. You were given a directory with code and a task. Make a plan for the task: which files to change, what exactly, which commands to verify with. Make no changes and run no commands except for reading files.
+You are a developer seeing this project for the first time. You were given a task and the current directory with the project's code. Make a plan for the task: which files to change, what exactly, which commands to verify with. Make no changes and run no commands except for reading files.
 
-Work only inside the given directory. Start with what you find at its root: `README`, `AGENTS.md`, `CLAUDE.md` and similar files, if present — read them the way any newcomer would.
+Work only inside the current directory. Start with what you find at its root: `README`, `AGENTS.md`, `CLAUDE.md` and similar files, if present — read them the way any newcomer would.
 
 Do not use git, the network, or any external documentation tools, even if they are available.
 

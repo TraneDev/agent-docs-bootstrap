@@ -5,7 +5,15 @@ description: Build reference documentation for a codebase so coding agents and n
 
 # docs-bootstrap
 
-You guide a developer through building the project's reference documentation in stages. Every stage ends with a stop: show the result, wait for an explicit "ok", update `docs/agents/bootstrap-state.md`. Exploration goes to the `docs-scout` subagent, the reader test to the `docs-reader` subagent; you talk to the human and write down what they confirm.
+You guide a developer through building the project's reference documentation in stages. Every stage ends with a stop: show the result, wait for an explicit "ok", update `docs/agents/bootstrap-state.md`. Start every stop with three lines, so the human knows what they are approving:
+
+```
+Stage <number> · <name> — <done> of <total> stages done
+Done: <one or two lines>
+Needed from you: <one concrete action> — <why>
+```
+
+When the stop is an interview round, the third line says how many questions there are and what they are about. Exploration goes to the `docs-scout` subagent, the reader test to a separate `docs-reader` process started by the `docs-check` skill; you talk to the human and write down what they confirm.
 
 ## Invariants
 
@@ -17,6 +25,7 @@ They hold at every stage.
 - **Existing files are extended, not overwritten.** Found `AGENTS.md`, `CLAUDE.md`, `CONTEXT.md`, ADRs → add to them and record contradictions under "Discrepancies" in the state file.
 - **Questions to the user wait for stage 2.** At stages 1 and 1.5 do not interrupt the human except to confirm the stack and fill in `sources.md`. At stage 2 the backlog joins the interview and is asked by its rules, in rounds (see "Combining with grilling").
 - **Keep your own context for the conversation.** Do not read external docs or scan the whole repository yourself: delegate to `docs-scout` and read its results from `docs/agents/scratch/` in parts.
+- **Secrets never reach the documents.** Passwords, tokens, keys and credentials, test environments included, are not written down: only where to get them (a vault, an environment variable, who to ask). If the human dictates a secret, record its source instead of the value and say why.
 - **Do not judge documentation quality yourself.** The reader test finds gaps by comparing a fresh agent's plan with the real commit.
 - **Formats are not duplicated.** Glossary and ADRs follow the `domain-modeling` skill (its `CONTEXT-FORMAT.md`, `ADR-FORMAT.md`). Diagrams — [references/c4-format.md](references/c4-format.md). `AGENTS.md` — [references/agents-md-format.md](references/agents-md-format.md). Reader test — the `docs-check` skill.
 - **Language.** Documents are written in the language recorded in the state file; identifiers and code terms stay as they are, and a glossary term carries its code name: "**Order request** (`Request`)". Templates in this skill are in English: translate headings and text when the documents language differs, keep file names.
@@ -25,9 +34,9 @@ They hold at every stage.
 
 Start a subagent with your harness's tool for it (a subagent, agent or task tool). Each call gets a **fresh** subagent: it knows only the brief you give it. Copy the needed brief from [references/scout-briefs.md](references/scout-briefs.md) into the call in full.
 
-If the user's model provider rate-limits parallel requests, run subagents one at a time: one call, wait for the result, then the next. Otherwise independent batches may run in parallel.
+Independent calls run in parallel: the stage 1.5 batches, and the three reader runs in `docs-check`. Start them together if your harness can. Only if the user's model provider rate-limits parallel requests, run them one at a time: one call, wait for the result, then the next.
 
-If the harness cannot start the `docs-scout` subagent, do the brief yourself but write the result to the scratch file and keep only a summary in the conversation. The reader test cannot run without a separate agent — see `docs-check`.
+If the harness cannot start the `docs-scout` subagent, do the brief yourself but write the result to the scratch file and keep only a summary in the conversation. The reader test never runs as a subagent: `docs-check` starts the reader as a separate process.
 
 ## Stage 0. Session start
 
@@ -54,7 +63,9 @@ Skipped when `sources.md` lists no external sources, or the agent has no tools t
 **Scout, in a loop.** The "Stage 1.5" brief works in batches so that no context overflows:
 1. Batch 0: a new `docs-scout` builds an index of all pages without reading bodies → `docs/agents/scratch/external-index.md`. One line comes back with the page count.
 2. Read the index and split it into batches of 5–10 pages. More than 100 pages → ask the human which subtrees matter and skip the rest with a note in the state file.
-3. For each batch start a **new** `docs-scout` with the batch number and the list of page ids. Result: file `external-audit-N.md`, one line in the conversation.
+3. For each batch start a **new** `docs-scout` with the batch number and the list of page ids, in parallel (see [Subagents](#subagents)). Result: file `external-audit-N.md`, one line in the conversation.
+
+   Work resumes after a break instead of starting over: an existing index is not rebuilt if `sources.md` has not changed since, and a batch whose `external-audit-N.md` exists is skipped. Record the batch split in the state file so the batch numbers stay the same.
 4. Do not read the batch files into your context whole: build the summary with `grep` on the type column, or ask the last scout to merge them into `external-audit-summary.md`.
 
 **You.** Build a "present / outdated / missing" table across the four Diátaxis types. Show it to the human. This maps the work: what to transfer, what to verify, what to write from scratch.
@@ -94,7 +105,7 @@ A how-to is a step-by-step procedure for a recurring task: "add a migration", "a
 **You.** Show the list; the human picks the 3–7 most frequent. For each:
 - an up-to-date external page exists → transfer it to `docs/how-to/<slug>.md`, checking every step against the code;
 - an outdated one exists → load `doc-coauthoring` and rewrite it with the human (stages Context Gathering and Refinement; its Reader Testing is replaced by `docs-check`);
-- none → do not write it from memory. Defer it to stage 6: where the reader has to guess is where a how-to is missing.
+- none → do not write it from memory. List it as deferred: real team tasks will supply the material. Do not write how-tos from the reader test tasks in `reader-tests.md`: a document written from a test task holds its answer, and the check on that task stops meaning anything.
 
 **Done when:** every step of every how-to points to an existing file or a command verified at stage 1; the deferred how-tos are listed in the state file.
 
@@ -112,15 +123,15 @@ Do not cache in `AGENTS.md` what an agent finds in the package manifest with one
 
 ## Stage 6. Reader test
 
-Load the `docs-check` skill and run it. It takes tasks from `reader-tests.md` (or proposes candidates from git if there are none), builds snapshots, starts `docs-reader` and compares its plans with the real commits.
+Load the `docs-check` skill and run it. It picks tasks from git history, checks them for leaks, builds snapshots, starts the reader as a separate process and compares its plans with the real commits.
 
-Each gap → a fix in the documents (stages 4–5) → a rerun of the same task.
+The gaps become one list of fixes in the documents (stages 4–5) that the human approves once. The same tasks are not rerun after the fixes: the documents now hold their answers. Those tasks become `used`, and the next check runs on new ones.
 
-**Done when:** all three tasks have no gaps left, or the human accepted the remaining ones; the runs are recorded in `reader-tests.md`.
+**Done when:** the gaps of all three tasks are listed; the human approved the fix list and the approved fixes are applied; the tasks are marked; the run is recorded in `reader-tests.md`.
 
 ## Wrap-up
 
-Final report to the human: what was written (terms, ADRs, diagrams, how-tos, `AGENTS.md`), open questions with addressees, code/document mismatches as rename candidates, gaps the reader test found and how they were fixed. Say that the check can be repeated with the `docs-check` skill after notable changes to the project.
+Final report to the human: what was written (terms, ADRs, diagrams, how-tos, `AGENTS.md`), open questions with addressees, code/document mismatches as rename candidates, gaps the reader test found and how they were fixed. Say that the check should be repeated with the `docs-check` skill after a few weeks of team work or notable changes: it then runs on new tasks and shows whether the fixes helped.
 
 ## New project track
 
