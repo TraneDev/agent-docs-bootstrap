@@ -4,6 +4,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versions follo
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-27
+
 ### Changed
 - Third-party skills are bundled inside `docs-bootstrap` as guides in `vendor/<name>/`, read by path, instead of being installed as separate skills. Each `SKILL.md` is renamed to `<name>.md`, content unchanged: Codex and OpenCode find a nested `SKILL.md` and register it as a skill, and OpenCode silently keeps one of two skills with the same name. A user's own `grilling` or `domain-modeling` no longer clashes with the kit's copy. The install now has two skills, `docs-bootstrap` and `docs-check`.
 - The installer removes paths an earlier version installed into the same targets and this version no longer ships, so an update from 0.2.0 drops the old third-party skill folders.
