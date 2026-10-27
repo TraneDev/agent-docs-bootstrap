@@ -4,6 +4,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versions follo
 
 ## [Unreleased]
 
+## [0.4.2] - 2026-10-27
+
 ### Fixed
 - Content hashes left out every dot file, so a user's own hidden file in a kit folder, such as `.claude/skills/docs-check/.notes.md`, did not count as a change and was deleted by an update or `--uninstall`. Only files the OS adds are left out now: `.DS_Store`, `._*`, `Thumbs.db`, `desktop.ini`. A folder without them hashes as in 0.4.0.
 - `LEGACY` lacked what 0.4.0 and 0.4.1 installed for `docs-check`, so installs stuck on 0.4.0 would stop recovering once `docs-check` changed. The hash is added, and `scripts/check.mjs` now installs every release tag and fails when `LEGACY` misses anything one of them installed; CI fetches the tags for it.
