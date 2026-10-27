@@ -16,7 +16,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -49,6 +49,9 @@ for (const e of fs.readdirSync(path.join(ROOT, 'skills'), { withFileTypes: true 
       if (!/^[a-z]+:/.test(link) && !fs.existsSync(path.resolve(path.dirname(f), link))) err(`${rel(f)}: broken link ${link}`);
   }
 }
+// install.mjs leaves files the OS adds (dot files, Thumbs.db, desktop.ini) out of content hashes, so the kit ships none.
+for (const f of execFileSync('git', ['ls-files', '-z', 'skills', 'agents'], { cwd: ROOT, encoding: 'utf8' }).split('\0').filter(Boolean))
+  if (f.split('/').some(s => s.startsWith('.') || /^(thumbs\.db|desktop\.ini)$/i.test(s))) err(`${f}: OS files are left out of install hashes; the kit must not ship them`);
 const vendored = fs.readdirSync(vendor, { withFileTypes: true }).filter(e => e.isDirectory()).map(e => e.name);
 for (const n of vendored) {
   const d = path.join(vendor, n);
@@ -116,6 +119,28 @@ try {
   if (!fs.existsSync(path.join(tmp, '.claude/agents/docs-scout.md'))) err('uninstall removed a file the user changed after installing');
   for (const d of ['src', '.agents/skills/grilling', '.claude/agents/docs-scout.md']) fs.rmSync(path.join(tmp, d), { recursive: true, force: true });
   fs.rmSync(outside, { recursive: true, force: true });
+  // Repeated runs in a fresh project: OS files, a marker line 0.4.0 dropped, a shipped file the user changed.
+  const p2 = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-docs-bootstrap-rerun-'));
+  try {
+    const run = (...args) => spawnSync(process.execPath, [path.join(pkg, 'install.mjs'), '--project', p2, '--yes', '--target', 'claude', ...args], { encoding: 'utf8' });
+    const m2 = () => read(path.join(p2, '.agent-docs-bootstrap'));
+    const listed = (r) => new RegExp(`^${r.replace(/[./]/g, '\\$&')} [0-9a-f]{16}$`, 'm').test(m2());
+    const junk = () => { for (const f of ['.DS_Store', 'Thumbs.db', 'references/desktop.ini']) fs.writeFileSync(path.join(p2, '.claude/skills/docs-bootstrap', f), '\0\0\0\x01Bud1'); };
+    run(); junk();
+    for (const i of [1, 2]) { const r = run(); if (r.status !== 0 || /WARNING/.test(r.stderr)) err(`rerun ${i} with .DS_Store: exit ${r.status} ${r.stderr.trim()}`); }
+    if (!listed('.claude/skills/docs-bootstrap')) err('rerun with .DS_Store: docs-bootstrap dropped out of the marker');
+    fs.writeFileSync(path.join(p2, '.agent-docs-bootstrap'), m2().replace(/^\.claude\/skills\/docs-bootstrap .*\n/m, '')); junk();
+    const rec = run();
+    if (rec.status !== 0 || !listed('.claude/skills/docs-bootstrap')) err(`recovery of an unlisted path with kit content: exit ${rec.status}, listed ${listed('.claude/skills/docs-bootstrap')}`);
+    const skill = path.join(p2, '.claude/skills/docs-check/SKILL.md');
+    fs.appendFileSync(skill, 'local rule\n');
+    const runs = [run(), run()];
+    for (const r of runs) if (r.status === 0 || !/skipped \.claude\/skills\/docs-check: changed since it was installed/.test(r.stderr)) err(`changed shipped path: exit ${r.status} ${r.stderr.trim()}`);
+    if (runs[0].stderr !== runs[1].stderr) err('changed shipped path: the two runs report different things');
+    if (!read(skill).endsWith('local rule\n')) err('changed shipped path: the user edit was overwritten');
+    if (!listed('.claude/skills/docs-check')) err('changed shipped path: its marker line was dropped');
+  } finally { fs.rmSync(p2, { recursive: true, force: true }); }
+
   const left = walk(tmp);
   if (left.length) err(`uninstall left files behind: ${left.map(f => path.relative(tmp, f)).join(', ')}`);
 } catch (e) {

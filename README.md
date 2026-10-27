@@ -17,7 +17,7 @@ You need Node.js 18+ and a git repository.
 1. From your project root, install the skills and subagents:
 
    ```bash
-   npx agent-docs-bootstrap@0.4.0 --target claude
+   npx agent-docs-bootstrap@0.4.1 --target claude
    ```
 
    Replace `claude` with `codex`, `opencode`, a list such as `claude,codex`, or `all`.
@@ -103,19 +103,19 @@ All options run the same installer from your project root. Pin the version: the 
 **From npm** (recommended):
 
 ```bash
-npx agent-docs-bootstrap@0.4.0 --target claude
+npx agent-docs-bootstrap@0.4.1 --target claude
 ```
 
 **From a GitHub release tag**, when the npm registry is blocked or unavailable:
 
 ```bash
-npx github:TraneDev/agent-docs-bootstrap#v0.4.0 --target claude
+npx github:TraneDev/agent-docs-bootstrap#v0.4.1 --target claude
 ```
 
 **From a clone**, to read or change the kit first:
 
 ```bash
-git clone --branch v0.4.0 https://github.com/TraneDev/agent-docs-bootstrap.git ~/agent-docs-bootstrap
+git clone --branch v0.4.1 https://github.com/TraneDev/agent-docs-bootstrap.git ~/agent-docs-bootstrap
 node ~/agent-docs-bootstrap/install.mjs --target claude
 ```
 
@@ -134,7 +134,8 @@ Two skills are installed, `docs-bootstrap` and `docs-check`. The guides by other
 `.agent-docs-bootstrap` lists every installed path with a hash of what was written. The installer replaces or removes a path only if it is listed there and its content still matches, so it never touches files it did not create or that you changed:
 
 - a path that exists but is not listed is skipped with a warning;
-- a listed path whose content you changed, for example a skill you replaced with your own version, is left in place as yours, with a warning, and drops out of the marker;
+- a listed path whose content you changed is left in place, with a warning, and the installer exits non-zero; a changed path the kit no longer ships, for example a skill you replaced with your own version, becomes yours and drops out of the marker;
+- files the OS adds to the kit's folders, such as `.DS_Store`, `Thumbs.db` or `desktop.ini`, do not count as a change;
 - a marker line not shaped like a path the kit installs (for example `src` or `../x`, added by a bad merge) is ignored with a warning.
 
 ### Other agents

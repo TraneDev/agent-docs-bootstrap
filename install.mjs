@@ -11,9 +11,10 @@
 //   codex     skills → .agents/skills/   agents → .codex/agents/*.toml
 //   opencode  skills → .agents/skills/   agents → .opencode/agents/*.md   commands → .opencode/commands/*.md
 // Installed paths are listed in .agent-docs-bootstrap with a hash of what was written. A path is replaced or removed
-// only if it is listed, has the shape of a path the kit writes (<layout folder>/<kit name>), and its content still
-// matches that hash; a changed path is left in place as the user's. On an update, listed paths this version no
-// longer ships are removed under the same rule.
+// only if its line has the shape of a path the kit writes (<layout folder>/<kit name>) and its content still matches
+// that hash or something a version of the kit wrote; OS files such as .DS_Store do not count. A changed path is left
+// in place and the run exits non-zero. On an update, listed paths this version no longer ships are removed under the
+// same rule, or left to the user if changed.
 // No network access, no changes to harness settings, no admin rights.
 
 import fs from 'node:fs';
@@ -73,8 +74,19 @@ const LEGACY = new Set([
   'c87450584ed42c8b', 'cf2f8a40c91f3c45', 'dac09810ceb351f7', 'dc418221c7363caa', 'f741ba5711364c55',
   'fceff4c3b3159c80', 'fd975138dcda6b38', 'fe412d3c3c312f7a',
 ]);
+
+const skills = skillDirs();
+const agents = AGENTS.map(n => parseAgent(path.join(KIT, 'agents', `${n}.md`)));
+const models = { 'docs-scout': a['scout-model'], 'docs-reader': a['reader-model'] };
+const COMMANDS = [['docs-bootstrap', "Build the project's reference documentation"], ['docs-check', "Optional: test the project's documentation with a fresh reader"]];
+const commandBody = (name, what) => `---\ndescription: ${JSON.stringify(`${what} (${name})`)}\n---\nLoad the \`${name}\` skill and follow it. Arguments from the developer, if any: $ARGUMENTS\n`;
+// What this version writes when no model is pinned. Content that matches it or LEGACY byte for byte is the kit's,
+// even where the marker lost its line (0.4.0 counted a .DS_Store as a change and dropped the line).
+const CURRENT = new Set([...skills.map(d => contentHash(d)),
+  ...TARGETS.flatMap(t => agents.map(ag => textHash(render(t, ag)))), ...COMMANDS.map(([n, w]) => textHash(commandBody(n, w)))]);
+const isKitContent = (h) => LEGACY.has(h) || CURRENT.has(h);
 // The path is the kit's and nobody changed it since it was installed.
-const isUnchanged = (r) => { const h = contentHash(abs(r)); return old.get(r) ? h === old.get(r) : LEGACY.has(h); };
+const isUnchanged = (r) => { const h = contentHash(abs(r)); return h === old.get(r) || isKitContent(h); };
 const changedNote = (r) => `${r} changed since it was installed, so it is left in place as yours`;
 if (a.uninstall) { uninstall(); process.exit(0); }
 
@@ -90,21 +102,24 @@ if (!GLOBAL) {
 
 const installed = new Map();
 const released = new Set();
+const shipped = new Set();
+const skipped = [];
+// A shipped path the user changed keeps its marker line and old hash, so every run says the same thing about it.
 function writeOwned(r, fn) {
-  if (installed.has(r) || released.has(r)) return false;
+  if (shipped.has(r)) return false;
+  shipped.add(r);
   const dst = abs(r);
-  if (exists(dst) && !old.has(r)) { warn(`skipped ${r}: exists and was not installed by this kit`); return false; }
-  if (exists(dst) && !isUnchanged(r)) { warn(`skipped ${changedNote(r)}; delete it and run again to get this version`); released.add(r); return false; }
+  if (exists(dst)) {
+    const why = !old.has(r) && !isKitContent(contentHash(dst)) ? 'exists and was not installed by this kit'
+      : old.has(r) && !isUnchanged(r) ? 'changed since it was installed' : '';
+    if (why) { warn(`skipped ${r}: ${why}`); skipped.push(r); return false; }
+  }
   fs.rmSync(dst, { recursive: true, force: true });
   fs.mkdirSync(path.dirname(dst), { recursive: true });
   fn(dst);
   installed.set(r, contentHash(dst));
   return true;
 }
-
-const skills = skillDirs();
-const agents = AGENTS.map(n => parseAgent(path.join(KIT, 'agents', `${n}.md`)));
-const models = { 'docs-scout': a['scout-model'], 'docs-reader': a['reader-model'] };
 
 for (const t of targets) {
   const L = LAYOUT[t];
@@ -118,29 +133,36 @@ for (const t of targets) {
     const r = `${L.agents}/${ag.name}.${ext}`;
     if (writeOwned(r, dst => fs.writeFileSync(dst, render(t, ag, models[ag.name])))) log(`agent  ${r}`);
   }
-  if (L.commands) for (const [name, what] of [['docs-bootstrap', "Build the project's reference documentation"], ['docs-check', "Optional: test the project's documentation with a fresh reader"]]) {
+  if (L.commands) for (const [name, what] of COMMANDS) {
     const r = `${L.commands}/${name}.md`;
-    const body = `---\ndescription: ${JSON.stringify(`${what} (${name})`)}\n---\nLoad the \`${name}\` skill and follow it. Arguments from the developer, if any: $ARGUMENTS\n`;
-    if (writeOwned(r, dst => fs.writeFileSync(dst, body))) log(`command /${name}`);
+    if (writeOwned(r, dst => fs.writeFileSync(dst, commandBody(name, what)))) log(`command /${name}`);
   }
 }
 
 // Paths an earlier version installed into these targets' folders and this version no longer ships.
 const ownDirs = new Set(targets.flatMap(t => Object.values(LAYOUT[t])));
 for (const r of old.keys()) {
-  if (installed.has(r) || released.has(r) || !ownDirs.has(path.dirname(r)) || !exists(abs(r))) continue;
+  if (shipped.has(r) || !ownDirs.has(path.dirname(r)) || !exists(abs(r))) continue;
   if (isUnchanged(r)) { fs.rmSync(abs(r), { recursive: true, force: true }); log(`removed  ${r} (no longer shipped)`); }
   else { warn(`not removed: ${changedNote(r)}`); released.add(r); }
 }
 
-// Keep entries of earlier installs (e.g. another target) that are still on disk; a changed path is no longer listed.
+// Keep entries of earlier installs (e.g. another target) and skipped shipped paths that are still on disk; a changed
+// path this version no longer ships is the user's and is no longer listed.
 const keep = [...old].filter(([r]) => !installed.has(r) && !released.has(r) && exists(abs(r)));
 fs.writeFileSync(MARKER, [`version=${VERSION}`, ...[...keep, ...installed].map(([r, h]) => h ? `${r} ${h}` : r)].join('\n') + '\n');
 
-console.log(`\nDone: agent-docs-bootstrap ${VERSION}, ${targets.join(', ')}${GLOBAL ? ' (global)' : ''}.`);
-if (!GLOBAL) log(`commit the installed folders and .agent-docs-bootstrap so the whole team gets the same version`);
-log('restart the agent session so it picks up the new skills and subagents');
-log('start with the docs-bootstrap skill (Claude Code /docs-bootstrap, Codex $docs-bootstrap, OpenCode /docs-bootstrap)');
+if (skipped.length) {
+  console.error(`\nIncomplete: agent-docs-bootstrap ${VERSION} could not install ${skipped.length} path(s):`);
+  for (const r of skipped) console.error(`  ${r}`);
+  console.error('They hold content this kit did not write. To get this version, move or delete them, then run the installer again.');
+  process.exitCode = 1;
+} else {
+  console.log(`\nDone: agent-docs-bootstrap ${VERSION}, ${targets.join(', ')}${GLOBAL ? ' (global)' : ''}.`);
+  if (!GLOBAL) log(`commit the installed folders and .agent-docs-bootstrap so the whole team gets the same version`);
+  log('restart the agent session so it picks up the new skills and subagents');
+  log('start with the docs-bootstrap skill (Claude Code /docs-bootstrap, Codex $docs-bootstrap, OpenCode /docs-bootstrap)');
+}
 
 // ---------- rendering
 function render(target, ag, model) {
@@ -220,15 +242,22 @@ function usage(code, msg) {
   process.exit(code);
 }
 // Content hash of an installed file or folder: relative names and text with line endings normalised, so a
-// checkout with CRLF line endings still matches.
+// checkout with CRLF line endings still matches. Files the OS adds (dot files such as .DS_Store, Thumbs.db,
+// desktop.ini) are left out; the kit ships none (check.mjs makes sure). The format must not change: markers and
+// LEGACY depend on it.
 function contentHash(p) {
   const h = createHash('sha256');
   const files = fs.lstatSync(p).isDirectory() ? listFiles(p).sort() : [''];
   for (const f of files) h.update(`${f}\0${read(path.join(p, f)).replace(/\r\n/g, '\n')}\0`);
   return h.digest('hex').slice(0, 16);
 }
+function isOsFile(name) { return name.startsWith('.') || /^(thumbs\.db|desktop\.ini)$/i.test(name); }
+// The same hash for text about to be written as a file.
+function textHash(text) {
+  return createHash('sha256').update(`\0${text.replace(/\r\n/g, '\n')}\0`).digest('hex').slice(0, 16);
+}
 function listFiles(dir, base = dir) {
-  return fs.readdirSync(dir, { withFileTypes: true }).flatMap(e => {
+  return fs.readdirSync(dir, { withFileTypes: true }).filter(e => !isOsFile(e.name)).flatMap(e => {
     const p = path.join(dir, e.name);
     return e.isDirectory() ? listFiles(p, base) : [path.relative(base, p).split(path.sep).join('/')];
   });

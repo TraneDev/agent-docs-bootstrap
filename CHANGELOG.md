@@ -4,6 +4,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versions follo
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-10-27
+
+### Fixed
+- A `.DS_Store` or other OS file inside an installed folder counted as a change: the first run skipped the path and dropped its marker line, and later runs called it "not installed by this kit", so updates stopped for the whole team once the marker was committed. Dot files, `Thumbs.db` and `desktop.ini` are now left out of content hashes; a folder without them hashes exactly as in 0.4.0.
+- A path that exists without a marker line but holds content a kit version wrote, byte for byte, is recognised, updated and listed again, so installs stuck on 0.4.0 recover with a normal run.
+- A shipped path the user changed keeps its marker line and old hash, so every run reports the same thing about it instead of "changed" first and "not installed by this kit" afterwards.
+- The installer exits non-zero and lists the paths it could not install when a shipped path is skipped, so an agent or CI notices an incomplete install. A changed path the kit no longer ships is only a warning.
+
 ## [0.4.0] - 2026-10-27
 
 ### Changed
