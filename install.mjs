@@ -12,9 +12,9 @@
 //   opencode  skills → .agents/skills/   agents → .opencode/agents/*.md   commands → .opencode/commands/*.md
 // Installed paths are listed in .agent-docs-bootstrap with a hash of what was written. A path is replaced or removed
 // only if its line has the shape of a path the kit writes (<layout folder>/<kit name>) and its content still matches
-// that hash or something a version of the kit wrote; OS files such as .DS_Store do not count. A changed path is left
-// in place and the run exits non-zero. On an update, listed paths this version no longer ships are removed under the
-// same rule, or left to the user if changed.
+// that hash or something a version of the kit wrote. OS files such as .DS_Store do not count; a user's own file,
+// hidden or not, does. A changed path is left in place and the run exits non-zero. On an update, listed paths this
+// version no longer ships are removed under the same rule, or left to the user if changed.
 // No network access, no changes to harness settings, no admin rights.
 
 import fs from 'node:fs';
@@ -65,7 +65,9 @@ for (const l of read(MARKER).split('\n').map(l => l.trim()).filter(l => l && !l.
   if (isOwnedPath(r)) old.set(r, h);
   else warn(`ignored '${r}' in .agent-docs-bootstrap: not a path this kit installs`);
 }
-// Hashes of every path versions 0.1.0–0.3.0 installed (all targets, no model flags). Fixed: never edit.
+// Hashes of every path each released version installed (all targets, no model flags), so an install whose marker
+// lost its lines is still recognised after the kit changes. Every release adds the outgoing version's hashes;
+// nothing is ever removed. check.mjs installs each release tag and fails, listing the missing ones.
 const LEGACY = new Set([
   '00ca80d7077c0e4b', '122ae594f7eb38bd', '185ec7d02d9cf70b', '1f5a0fe496f38dd6', '3798ad63dd954bac',
   '4c36074d70c5a88c', '562d1e8f3a090ffd', '698cadefe39cb46f', '6acf8481d4dd6a1a', '72bcff6d0e5476ba',
@@ -73,6 +75,8 @@ const LEGACY = new Set([
   '900cf27ab683e5d1', '96288a3e60126264', '9e0e5c30da22c059', 'b45162299d9aa78b', 'c5d47d8811aa61ee',
   'c87450584ed42c8b', 'cf2f8a40c91f3c45', 'dac09810ceb351f7', 'dc418221c7363caa', 'f741ba5711364c55',
   'fceff4c3b3159c80', 'fd975138dcda6b38', 'fe412d3c3c312f7a',
+  // 0.4.0, 0.4.1
+  '7f6ef4c3f161abfa',
 ]);
 
 const skills = skillDirs();
@@ -242,16 +246,16 @@ function usage(code, msg) {
   process.exit(code);
 }
 // Content hash of an installed file or folder: relative names and text with line endings normalised, so a
-// checkout with CRLF line endings still matches. Files the OS adds (dot files such as .DS_Store, Thumbs.db,
-// desktop.ini) are left out; the kit ships none (check.mjs makes sure). The format must not change: markers and
-// LEGACY depend on it.
+// checkout with CRLF line endings still matches. Files the OS adds (.DS_Store, ._*, Thumbs.db, desktop.ini) are
+// left out; the kit ships none (check.mjs makes sure). The format must not change: markers and LEGACY depend on it.
 function contentHash(p) {
   const h = createHash('sha256');
   const files = fs.lstatSync(p).isDirectory() ? listFiles(p).sort() : [''];
   for (const f of files) h.update(`${f}\0${read(path.join(p, f)).replace(/\r\n/g, '\n')}\0`);
   return h.digest('hex').slice(0, 16);
 }
-function isOsFile(name) { return name.startsWith('.') || /^(thumbs\.db|desktop\.ini)$/i.test(name); }
+// Only files the OS adds on its own. A user's own hidden file, such as .notes.md, is content and counts as a change.
+function isOsFile(name) { return /^(\.DS_Store|Thumbs\.db|desktop\.ini)$/i.test(name) || name.startsWith('._'); }
 // The same hash for text about to be written as a file.
 function textHash(text) {
   return createHash('sha256').update(`\0${text.replace(/\r\n/g, '\n')}\0`).digest('hex').slice(0, 16);

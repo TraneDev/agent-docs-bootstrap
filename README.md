@@ -135,7 +135,7 @@ Two skills are installed, `docs-bootstrap` and `docs-check`. The guides by other
 
 - a path that exists but is not listed is skipped with a warning;
 - a listed path whose content you changed is left in place, with a warning, and the installer exits non-zero; a changed path the kit no longer ships, for example a skill you replaced with your own version, becomes yours and drops out of the marker;
-- files the OS adds to the kit's folders, such as `.DS_Store`, `Thumbs.db` or `desktop.ini`, do not count as a change;
+- files the OS adds to the kit's folders (`.DS_Store`, `._*`, `Thumbs.db`, `desktop.ini`) do not count as a change; a file of your own there, hidden or not, does, so it is never deleted;
 - a marker line not shaped like a path the kit installs (for example `src` or `../x`, added by a bad merge) is ignored with a warning.
 
 ### Other agents

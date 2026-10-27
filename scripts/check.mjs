@@ -18,6 +18,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { createHash } from 'node:crypto';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const errors = [];
@@ -49,9 +50,9 @@ for (const e of fs.readdirSync(path.join(ROOT, 'skills'), { withFileTypes: true 
       if (!/^[a-z]+:/.test(link) && !fs.existsSync(path.resolve(path.dirname(f), link))) err(`${rel(f)}: broken link ${link}`);
   }
 }
-// install.mjs leaves files the OS adds (dot files, Thumbs.db, desktop.ini) out of content hashes, so the kit ships none.
+// install.mjs leaves files the OS adds (.DS_Store, ._*, Thumbs.db, desktop.ini) out of content hashes, so the kit ships none.
 for (const f of execFileSync('git', ['ls-files', '-z', 'skills', 'agents'], { cwd: ROOT, encoding: 'utf8' }).split('\0').filter(Boolean))
-  if (f.split('/').some(s => s.startsWith('.') || /^(thumbs\.db|desktop\.ini)$/i.test(s))) err(`${f}: OS files are left out of install hashes; the kit must not ship them`);
+  if (f.split('/').some(isOsFile)) err(`${f}: OS files are left out of install hashes; the kit must not ship them`);
 const vendored = fs.readdirSync(vendor, { withFileTypes: true }).filter(e => e.isDirectory()).map(e => e.name);
 for (const n of vendored) {
   const d = path.join(vendor, n);
@@ -125,7 +126,7 @@ try {
     const run = (...args) => spawnSync(process.execPath, [path.join(pkg, 'install.mjs'), '--project', p2, '--yes', '--target', 'claude', ...args], { encoding: 'utf8' });
     const m2 = () => read(path.join(p2, '.agent-docs-bootstrap'));
     const listed = (r) => new RegExp(`^${r.replace(/[./]/g, '\\$&')} [0-9a-f]{16}$`, 'm').test(m2());
-    const junk = () => { for (const f of ['.DS_Store', 'Thumbs.db', 'references/desktop.ini']) fs.writeFileSync(path.join(p2, '.claude/skills/docs-bootstrap', f), '\0\0\0\x01Bud1'); };
+    const junk = () => { for (const f of ['.DS_Store', '._SKILL.md', 'Thumbs.db', 'references/desktop.ini']) fs.writeFileSync(path.join(p2, '.claude/skills/docs-bootstrap', f), '\0\0\0\x01Bud1'); };
     run(); junk();
     for (const i of [1, 2]) { const r = run(); if (r.status !== 0 || /WARNING/.test(r.stderr)) err(`rerun ${i} with .DS_Store: exit ${r.status} ${r.stderr.trim()}`); }
     if (!listed('.claude/skills/docs-bootstrap')) err('rerun with .DS_Store: docs-bootstrap dropped out of the marker');
@@ -139,6 +140,14 @@ try {
     if (runs[0].stderr !== runs[1].stderr) err('changed shipped path: the two runs report different things');
     if (!read(skill).endsWith('local rule\n')) err('changed shipped path: the user edit was overwritten');
     if (!listed('.claude/skills/docs-check')) err('changed shipped path: its marker line was dropped');
+    // The user's own hidden file in a kit folder is content, not OS noise: kept by an update and by uninstall.
+    const notes = path.join(p2, '.claude/skills/docs-bootstrap/.notes.md');
+    fs.writeFileSync(notes, 'mine\n');
+    const hid = run();
+    if (hid.status === 0 || !/skipped \.claude\/skills\/docs-bootstrap: changed since it was installed/.test(hid.stderr) || !fs.existsSync(notes))
+      err(`own hidden file in a kit folder: exit ${hid.status}, kept ${fs.existsSync(notes)} ${hid.stderr.trim()}`);
+    run('--uninstall');
+    if (!fs.existsSync(notes)) err('own hidden file in a kit folder: removed by --uninstall');
   } finally { fs.rmSync(p2, { recursive: true, force: true }); }
 
   const left = walk(tmp);
@@ -176,6 +185,39 @@ try {
   err(`docs-check snapshot check failed: ${e.stderr || e.message}`);
 } finally { for (const d of [snap, built && path.dirname(built)]) if (d) fs.rmSync(d, { recursive: true, force: true }); }
 
+// ---------- every release's install stays recognised: LEGACY in install.mjs holds what each release tag installed
+// An install whose marker lost its lines is recognised only by content, so the hashes of every released version must
+// stay known after the kit changes. Each release adds the outgoing version's hashes; this lists what is missing.
+const relTmp = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-docs-bootstrap-releases-'));
+try {
+  const tags = execFileSync('git', ['tag', '-l', 'v*'], { cwd: ROOT, encoding: 'utf8' }).split('\n').filter(t => /^v\d+\.\d+\.\d+$/.test(t));
+  if (!tags.length) throw new Error('no release tags v*; fetch them (in CI: actions/checkout with fetch-depth: 0)');
+  const legacy = new Set(((read(path.join(ROOT, 'install.mjs')).match(/const LEGACY = new Set\(\[([\s\S]*?)\]\);/) || [])[1] || '').match(/'[0-9a-f]{16}'/g)?.map(h => h.slice(1, -1)) || []);
+  if (!legacy.size) throw new Error('no LEGACY set found in install.mjs');
+  // Installs a kit into a fresh project and returns [path, recorded hash, content hash] for every marker line.
+  const installFrom = (kit, name) => {
+    const proj = path.join(relTmp, name);
+    fs.mkdirSync(proj); execFileSync('git', ['init', '-q'], { cwd: proj });
+    execFileSync(process.execPath, [path.join(kit, 'install.mjs'), '--target', 'all', '--project', proj, '--yes'], { stdio: ['ignore', 'ignore', 'pipe'] });
+    return read(path.join(proj, '.agent-docs-bootstrap')).split('\n').filter(l => l && !l.startsWith('version='))
+      .map(l => { const [r, h] = l.split(/\s+/); return [r, h, contentHash(path.join(proj, r))]; });
+  };
+  const current = installFrom(ROOT, 'current');
+  for (const [r, h, c] of current) if (h !== c) err(`check.mjs contentHash differs from install.mjs for ${r} (${c} vs ${h}): keep the two copies the same`);
+  const currentHashes = new Set(current.map(([, , c]) => c));
+  for (const tag of tags) {
+    const kit = path.join(relTmp, `${tag}-kit`);
+    fs.mkdirSync(kit);
+    execFileSync('git', ['archive', '--format=tar', '-o', path.join(relTmp, `${tag}.tar`), tag], { cwd: ROOT });
+    execFileSync('tar', ['-xf', path.join(relTmp, `${tag}.tar`), '-C', kit]);
+    // The release being prepared may still match what this tree installs; every earlier one must be in LEGACY.
+    const missing = installFrom(kit, tag).filter(([, , c]) => !legacy.has(c) && !(tag === `v${version}` && currentHashes.has(c)));
+    if (missing.length) err(`install.mjs LEGACY lacks what ${tag} installed; add ${[...new Set(missing.map(([, , c]) => `'${c}'`))].join(', ')} (${missing.map(([r]) => r).join(', ')})`);
+  }
+} catch (e) {
+  err(`release hash check failed: ${e.stderr || e.message}`);
+} finally { fs.rmSync(relTmp, { recursive: true, force: true }); }
+
 // ---------- forbidden strings
 let patterns = process.env.FORBIDDEN_PATTERNS || '';
 const pf = path.join(ROOT, '.forbidden-patterns');
@@ -191,6 +233,20 @@ if (res.length) {
 if (errors.length) { console.error(errors.map(e => `✗ ${e}`).join('\n')); process.exit(1); }
 console.log('All checks passed.');
 
+// The same content hash as install.mjs; the release hash check compares the two on a fresh install.
+function isOsFile(name) { return /^(\.DS_Store|Thumbs\.db|desktop\.ini)$/i.test(name) || name.startsWith('._'); }
+function contentHash(p) {
+  const h = createHash('sha256');
+  const files = fs.lstatSync(p).isDirectory() ? listFiles(p).sort() : [''];
+  for (const f of files) h.update(`${f}\0${fs.readFileSync(path.join(p, f), 'utf8').replace(/\r\n/g, '\n')}\0`);
+  return h.digest('hex').slice(0, 16);
+}
+function listFiles(dir, base = dir) {
+  return fs.readdirSync(dir, { withFileTypes: true }).filter(e => !isOsFile(e.name)).flatMap(e => {
+    const p = path.join(dir, e.name);
+    return e.isDirectory() ? listFiles(p, base) : [path.relative(base, p).split(path.sep).join('/')];
+  });
+}
 function walk(d) {
   const out = [];
   for (const e of fs.readdirSync(d, { withFileTypes: true })) {
