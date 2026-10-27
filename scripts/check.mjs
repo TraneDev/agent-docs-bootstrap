@@ -73,16 +73,26 @@ try {
     if (!fs.existsSync(path.join(pkg, l))) err(`package: missing ${l}`);
   }
   const install = (...args) => execFileSync(process.execPath, [path.join(pkg, 'install.mjs'), '--project', tmp, '--yes', ...args], { stdio: ['ignore', 'ignore', 'pipe'] });
-  // An earlier version's skill, listed in the marker, that this version no longer ships.
-  fs.mkdirSync(path.join(tmp, '.claude/skills/grilling'), { recursive: true });
-  fs.writeFileSync(path.join(tmp, '.claude/skills/grilling/SKILL.md'), 'x\n');
+  // Listed in the marker without a hash, as 0.3.0 and earlier wrote it: grilling exactly as 0.2.0 installed it
+  // (removed, no longer shipped), and a grilling the user replaced with their own (left in place).
+  const v = path.join(ROOT, 'skills', 'docs-bootstrap', 'vendor', 'grilling');
+  for (const f of ['LICENSE', 'agents/openai.yaml']) fs.cpSync(path.join(v, f), path.join(tmp, '.claude/skills/grilling', f), { recursive: true });
+  fs.copyFileSync(path.join(v, 'grilling.md'), path.join(tmp, '.claude/skills/grilling/SKILL.md'));
+  fs.mkdirSync(path.join(tmp, '.agents/skills/grilling'), { recursive: true });
+  fs.writeFileSync(path.join(tmp, '.agents/skills/grilling/SKILL.md'), 'my own grilling\n');
   // Lines a bad merge could add to the committed marker: uninstall must never follow them.
   const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-docs-bootstrap-outside-'));
   fs.mkdirSync(path.join(tmp, 'src')); fs.writeFileSync(path.join(tmp, 'src', 'keep.js'), 'x\n');
   fs.writeFileSync(path.join(tmp, '.agent-docs-bootstrap'),
-    `version=0.0.0\n.claude/skills/grilling\nsrc\n../${path.basename(outside)}\n${outside}\n.claude/skills/../../src\n`);
+    `version=0.0.0\n.claude/skills/grilling\n.agents/skills/grilling\nsrc\n../${path.basename(outside)}\n${outside}\n.claude/skills/../../src\n`);
   install('--target', 'all');
   if (fs.existsSync(path.join(tmp, '.claude/skills/grilling'))) err('install: a path the earlier version installed and this one does not ship was kept');
+  if (!fs.existsSync(path.join(tmp, '.agents/skills/grilling/SKILL.md'))) err('install: removed a listed path whose content the user changed');
+  const marker = read(path.join(tmp, '.agent-docs-bootstrap'));
+  if (/grilling/.test(marker)) err('install: a changed path the kit left in place is still listed in the marker');
+  if (!/^\.claude\/skills\/docs-check [0-9a-f]{16}$/m.test(marker)) err('install: marker lines carry no content hash');
+  // A file the user edits after installing is theirs: uninstall leaves it.
+  fs.appendFileSync(path.join(tmp, '.claude/agents/docs-scout.md'), 'local rule\n');
   const expect = {
     '.claude/skills/docs-bootstrap/SKILL.md': [], '.agents/skills/docs-check/SKILL.md': [],
     '.agents/skills/docs-bootstrap/vendor/domain-modeling/ADR-FORMAT.md': [],
@@ -103,7 +113,9 @@ try {
   }
   install('--uninstall');
   if (!fs.existsSync(path.join(tmp, 'src', 'keep.js')) || !fs.existsSync(outside)) err('uninstall removed a path the marker lists but the kit never installs');
-  fs.rmSync(path.join(tmp, 'src'), { recursive: true, force: true }); fs.rmSync(outside, { recursive: true, force: true });
+  if (!fs.existsSync(path.join(tmp, '.claude/agents/docs-scout.md'))) err('uninstall removed a file the user changed after installing');
+  for (const d of ['src', '.agents/skills/grilling', '.claude/agents/docs-scout.md']) fs.rmSync(path.join(tmp, d), { recursive: true, force: true });
+  fs.rmSync(outside, { recursive: true, force: true });
   const left = walk(tmp);
   if (left.length) err(`uninstall left files behind: ${left.map(f => path.relative(tmp, f)).join(', ')}`);
 } catch (e) {

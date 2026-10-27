@@ -38,7 +38,7 @@ const win = process.platform === 'win32';
 // Documents the kit builds; kit-installed paths and its run files never reach the reader. The marker is committed
 // and could hold any line, so only lines shaped like an installed path count (a line `docs` would hide every document).
 const KIT_DIRS = ['.claude/skills', '.claude/agents', '.agents/skills', '.codex/agents', '.opencode/agents', '.opencode/commands'];
-const kitPaths = read(path.join(ROOT, '.agent-docs-bootstrap'), '', true).split('\n').map(l => l.trim())
+const kitPaths = read(path.join(ROOT, '.agent-docs-bootstrap'), '', true).split('\n').map(l => l.trim().split(/\s+/)[0])
   .filter(l => KIT_DIRS.includes(path.posix.dirname(l)) && /^[a-z0-9-]+(\.md|\.toml)?$/.test(path.posix.basename(l)));
 const isKit = (p) => p === '.agent-docs-bootstrap' || p.startsWith('docs/agents/') || kitPaths.some(k => p === k || p.startsWith(k + '/'));
 // README and other files stay as they were in the parent commit, like the code: they are the project as it was,

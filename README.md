@@ -131,7 +131,11 @@ Files are copied into the project, not linked, so they get committed with it.
 
 Two skills are installed, `docs-bootstrap` and `docs-check`. The guides by other authors that `docs-bootstrap` relies on travel inside it, in `docs-bootstrap/vendor/`, and are not registered as skills, so a skill of yours with the same name, such as `grilling`, never clashes with them.
 
-`.agent-docs-bootstrap` lists every installed path. The installer replaces or removes only those paths and never touches files it did not create: a path that already exists and is not listed there is skipped with a warning, and a line in the marker that is not shaped like a path the kit installs (for example `src` or `../x`, added by a bad merge) is ignored with a warning.
+`.agent-docs-bootstrap` lists every installed path with a hash of what was written. The installer replaces or removes a path only if it is listed there and its content still matches, so it never touches files it did not create or that you changed:
+
+- a path that exists but is not listed is skipped with a warning;
+- a listed path whose content you changed, for example a skill you replaced with your own version, is left in place as yours, with a warning, and drops out of the marker;
+- a marker line not shaped like a path the kit installs (for example `src` or `../x`, added by a bad merge) is ignored with a warning.
 
 ### Other agents
 
@@ -144,7 +148,7 @@ What changes without the installer's targets:
 
 ### Update or remove
 
-- **Update:** run the installer again with the new version and commit the result. Paths the previous version installed and this one no longer ships are removed.
+- **Update:** run the installer again with the new version and commit the result. Paths the previous version installed and this one no longer ships are removed. Do not install an older version over a newer one: an older installer does not read the newer marker and treats the kit's files as yours. Run `--uninstall` with the newer version first.
 - **Remove:** run it with `--uninstall`. Everything listed in `.agent-docs-bootstrap` is deleted, along with the marker itself.
 
 <details>

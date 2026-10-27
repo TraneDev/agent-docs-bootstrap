@@ -4,6 +4,12 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versions follo
 
 ## [Unreleased]
 
+### Changed
+- `.agent-docs-bootstrap` lines are `<path> <content hash>`. A path is replaced or removed only if its content still matches what the kit wrote; lines without a hash, from 0.3.0 and earlier, are checked against the hashes of everything those versions installed.
+
+### Fixed
+- An update or `--uninstall` removed a listed path whatever was in it, so a skill the user had replaced with their own version under the same name, such as `grilling` after 0.2.0, was deleted. A changed path is now left in place as the user's, with a warning, and drops out of the marker. Subagent files a 0.3.0 or earlier install rendered with `--scout-model` or `--reader-model` do not match the known hashes and are left in place too: delete them and run the installer again.
+
 ## [0.3.0] - 2026-10-27
 
 ### Changed

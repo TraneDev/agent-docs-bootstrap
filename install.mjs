@@ -10,15 +10,17 @@
 //   claude    skills → .claude/skills/   agents → .claude/agents/*.md
 //   codex     skills → .agents/skills/   agents → .codex/agents/*.toml
 //   opencode  skills → .agents/skills/   agents → .opencode/agents/*.md   commands → .opencode/commands/*.md
-// Installed paths are listed in .agent-docs-bootstrap; only those are ever replaced or removed, and only if a line
-// has the shape of a path the kit writes (<layout folder>/<kit name>). On an update, listed paths this version no
-// longer ships are removed.
+// Installed paths are listed in .agent-docs-bootstrap with a hash of what was written. A path is replaced or removed
+// only if it is listed, has the shape of a path the kit writes (<layout folder>/<kit name>), and its content still
+// matches that hash; a changed path is left in place as the user's. On an update, listed paths this version no
+// longer ships are removed under the same rule.
 // No network access, no changes to harness settings, no admin rights.
 
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
+import { createHash } from 'node:crypto';
 
 const KIT = path.dirname(fileURLToPath(import.meta.url));
 const TARGETS = ['claude', 'codex', 'opencode'];
@@ -54,9 +56,26 @@ const layoutDirs = new Set(Object.values(LAYOUT).flatMap(L => Object.values(L)).
 // The marker is committed, so a bad merge or PR can add any line to it. Only a line shaped like a path the kit
 // writes, <layout folder>/<shipped name>[.md|.toml], is trusted; nothing else is ever replaced or removed.
 const isOwnedPath = (r) => layoutDirs.has(path.normalize(path.dirname(r))) && SHIPPED.has(path.basename(r).replace(/\.(md|toml)$/, ''));
-const markerLines = read(MARKER).split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('version='));
-for (const l of markerLines) if (!isOwnedPath(l)) warn(`ignored '${l}' in .agent-docs-bootstrap: not a path this kit installs`);
-const oldList = markerLines.filter(isOwnedPath);
+// Marker lines are `<path> <hash>`; versions up to 0.3.0 wrote the path alone, so their content is checked
+// against everything those versions installed (LEGACY).
+const old = new Map();
+for (const l of read(MARKER).split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('version='))) {
+  const [r, h] = l.split(/\s+/);
+  if (isOwnedPath(r)) old.set(r, h);
+  else warn(`ignored '${r}' in .agent-docs-bootstrap: not a path this kit installs`);
+}
+// Hashes of every path versions 0.1.0–0.3.0 installed (all targets, no model flags). Fixed: never edit.
+const LEGACY = new Set([
+  '00ca80d7077c0e4b', '122ae594f7eb38bd', '185ec7d02d9cf70b', '1f5a0fe496f38dd6', '3798ad63dd954bac',
+  '4c36074d70c5a88c', '562d1e8f3a090ffd', '698cadefe39cb46f', '6acf8481d4dd6a1a', '72bcff6d0e5476ba',
+  '790d7e6ae5034b3e', '79d9da94af685633', '7cd7eeac11324b51', '855778c0459cea17', '8c5adb3f63300a43',
+  '900cf27ab683e5d1', '96288a3e60126264', '9e0e5c30da22c059', 'b45162299d9aa78b', 'c5d47d8811aa61ee',
+  'c87450584ed42c8b', 'cf2f8a40c91f3c45', 'dac09810ceb351f7', 'dc418221c7363caa', 'f741ba5711364c55',
+  'fceff4c3b3159c80', 'fd975138dcda6b38', 'fe412d3c3c312f7a',
+]);
+// The path is the kit's and nobody changed it since it was installed.
+const isUnchanged = (r) => { const h = contentHash(abs(r)); return old.get(r) ? h === old.get(r) : LEGACY.has(h); };
+const changedNote = (r) => `${r} changed since it was installed, so it is left in place as yours`;
 if (a.uninstall) { uninstall(); process.exit(0); }
 
 if (!a.target) usage(1, 'Missing --target.');
@@ -69,16 +88,17 @@ if (!GLOBAL) {
     die(`No .git here (${BASE}) — is this the project root? Run from the root or add --yes.`);
 }
 
-const installed = new Set();
-const ours = (r) => oldList.includes(r);
+const installed = new Map();
+const released = new Set();
 function writeOwned(r, fn) {
-  if (installed.has(r)) return false;
+  if (installed.has(r) || released.has(r)) return false;
   const dst = abs(r);
-  if (exists(dst) && !ours(r)) { warn(`skipped ${r}: exists and was not installed by this kit`); return false; }
+  if (exists(dst) && !old.has(r)) { warn(`skipped ${r}: exists and was not installed by this kit`); return false; }
+  if (exists(dst) && !isUnchanged(r)) { warn(`skipped ${changedNote(r)}; delete it and run again to get this version`); released.add(r); return false; }
   fs.rmSync(dst, { recursive: true, force: true });
   fs.mkdirSync(path.dirname(dst), { recursive: true });
   fn(dst);
-  installed.add(r);
+  installed.set(r, contentHash(dst));
   return true;
 }
 
@@ -107,12 +127,15 @@ for (const t of targets) {
 
 // Paths an earlier version installed into these targets' folders and this version no longer ships.
 const ownDirs = new Set(targets.flatMap(t => Object.values(LAYOUT[t])));
-for (const r of oldList)
-  if (!installed.has(r) && ownDirs.has(path.dirname(r)) && exists(abs(r))) { fs.rmSync(abs(r), { recursive: true, force: true }); log(`removed  ${r} (no longer shipped)`); }
+for (const r of old.keys()) {
+  if (installed.has(r) || released.has(r) || !ownDirs.has(path.dirname(r)) || !exists(abs(r))) continue;
+  if (isUnchanged(r)) { fs.rmSync(abs(r), { recursive: true, force: true }); log(`removed  ${r} (no longer shipped)`); }
+  else { warn(`not removed: ${changedNote(r)}`); released.add(r); }
+}
 
-// Keep entries of earlier installs (e.g. another target) that are still on disk.
-const keep = oldList.filter(r => !installed.has(r) && exists(abs(r)));
-fs.writeFileSync(MARKER, [`version=${VERSION}`, ...keep, ...installed].join('\n') + '\n');
+// Keep entries of earlier installs (e.g. another target) that are still on disk; a changed path is no longer listed.
+const keep = [...old].filter(([r]) => !installed.has(r) && !released.has(r) && exists(abs(r)));
+fs.writeFileSync(MARKER, [`version=${VERSION}`, ...[...keep, ...installed].map(([r, h]) => h ? `${r} ${h}` : r)].join('\n') + '\n');
 
 console.log(`\nDone: agent-docs-bootstrap ${VERSION}, ${targets.join(', ')}${GLOBAL ? ' (global)' : ''}.`);
 if (!GLOBAL) log(`commit the installed folders and .agent-docs-bootstrap so the whole team gets the same version`);
@@ -166,11 +189,15 @@ function skillDirs() {
   return out;
 }
 function uninstall() {
-  if (!oldList.length) die(`Nothing to remove: no ${MARKER}.`);
+  if (!old.size) die(`Nothing to remove: no ${MARKER}.`);
   console.log(`Removing agent-docs-bootstrap from ${BASE}`);
-  for (const r of oldList) if (exists(abs(r))) { fs.rmSync(abs(r), { recursive: true, force: true }); log(`removed ${r}`); }
+  for (const r of old.keys()) {
+    if (!exists(abs(r))) continue;
+    if (isUnchanged(r)) { fs.rmSync(abs(r), { recursive: true, force: true }); log(`removed ${r}`); }
+    else warn(`not removed: ${changedNote(r)}`);
+  }
   fs.rmSync(MARKER, { force: true });
-  const dirs = new Set(oldList.flatMap(r => [path.dirname(r), path.dirname(path.dirname(r))]));
+  const dirs = new Set([...old.keys()].flatMap(r => [path.dirname(r), path.dirname(path.dirname(r))]));
   for (const d of [...dirs].sort((x, y) => y.length - x.length)) try { fs.rmdirSync(abs(d)); } catch {}
 }
 function parseArgs(argv) {
@@ -191,6 +218,20 @@ function usage(code, msg) {
   const src = read(fileURLToPath(import.meta.url)).split('\n').slice(1);
   console.log(src.slice(0, src.findIndex(l => !l.startsWith('//'))).map(l => l.replace(/^\/\/ ?/, '')).join('\n'));
   process.exit(code);
+}
+// Content hash of an installed file or folder: relative names and text with line endings normalised, so a
+// checkout with CRLF line endings still matches.
+function contentHash(p) {
+  const h = createHash('sha256');
+  const files = fs.lstatSync(p).isDirectory() ? listFiles(p).sort() : [''];
+  for (const f of files) h.update(`${f}\0${read(path.join(p, f)).replace(/\r\n/g, '\n')}\0`);
+  return h.digest('hex').slice(0, 16);
+}
+function listFiles(dir, base = dir) {
+  return fs.readdirSync(dir, { withFileTypes: true }).flatMap(e => {
+    const p = path.join(dir, e.name);
+    return e.isDirectory() ? listFiles(p, base) : [path.relative(base, p).split(path.sep).join('/')];
+  });
 }
 function read(p) { try { return fs.readFileSync(p, 'utf8'); } catch { return ''; } }
 function log(s) { console.log(`  ${s}`); }
