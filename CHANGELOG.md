@@ -4,6 +4,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versions follo
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-27
+
 ### Changed
 - `.agent-docs-bootstrap` lines are `<path> <content hash>`. A path is replaced or removed only if its content still matches what the kit wrote; lines without a hash, from 0.3.0 and earlier, are checked against the hashes of everything those versions installed.
 

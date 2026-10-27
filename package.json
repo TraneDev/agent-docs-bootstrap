@@ -1,6 +1,6 @@
 {
   "name": "agent-docs-bootstrap",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Agent skills that build reference documentation for a codebase (glossary, ADRs, architecture, how-tos, AGENTS.md) through interviews with the team, with an optional check by a fresh agent. Works with any agent that runs skills; the installer sets up Claude Code, Codex and OpenCode.",
   "license": "MIT",
   "repository": { "type": "git", "url": "git+https://github.com/TraneDev/agent-docs-bootstrap.git" },
