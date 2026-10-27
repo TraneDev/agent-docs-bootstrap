@@ -15,7 +15,7 @@ You need Node.js 18+ and a git repository.
 1. From your project root, install the skills and subagents:
 
    ```bash
-   npx agent-docs-bootstrap@0.1.0 --target claude
+   npx agent-docs-bootstrap@0.2.0 --target claude
    ```
 
    Replace `claude` with `codex`, `opencode`, a list such as `claude,codex`, or `all`.
@@ -101,19 +101,19 @@ All options run the same installer from your project root. Pin the version: the 
 **From npm** (recommended):
 
 ```bash
-npx agent-docs-bootstrap@0.1.0 --target claude
+npx agent-docs-bootstrap@0.2.0 --target claude
 ```
 
 **From a GitHub release tag**, when the npm registry is blocked or unavailable:
 
 ```bash
-npx github:TraneDev/agent-docs-bootstrap#v0.1.0 --target claude
+npx github:TraneDev/agent-docs-bootstrap#v0.2.0 --target claude
 ```
 
 **From a clone**, to read or change the kit first:
 
 ```bash
-git clone --branch v0.1.0 https://github.com/TraneDev/agent-docs-bootstrap.git ~/agent-docs-bootstrap
+git clone --branch v0.2.0 https://github.com/TraneDev/agent-docs-bootstrap.git ~/agent-docs-bootstrap
 node ~/agent-docs-bootstrap/install.mjs --target claude
 ```
 

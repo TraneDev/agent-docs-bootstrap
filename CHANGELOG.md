@@ -4,6 +4,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versions follo
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-27
+
 ### Added
 - `docs-check` own-task mode: the human gives a task, a fresh reader plans it on a snapshot of the current commit with the current documents, and the human decides what the documents should have answered. No reference commit, no gap list.
 

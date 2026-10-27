@@ -1,6 +1,6 @@
 {
   "name": "agent-docs-bootstrap",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Skills and subagents that build reference documentation for a codebase and test it with a fresh agent. For Claude Code, Codex and OpenCode.",
   "license": "MIT",
   "repository": { "type": "git", "url": "git+https://github.com/TraneDev/agent-docs-bootstrap.git" },
