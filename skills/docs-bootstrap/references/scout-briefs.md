@@ -71,6 +71,6 @@ Find 8–10 commits or merged PRs from the last 6–12 months matching: 2–8 fi
 
 Exclude commits whose new files from `--stat` are already mentioned in the repository's documents (`AGENTS.md`, `CLAUDE.md`, `CONTEXT*.md`, `docs/`): the documents know their answer.
 
-For each return: hash and date; parent commit; task wording from the commit message — without file names, hashes, ticket numbers or tracker links; a flag if the message does not say which object to change; expected files and areas of code and tests from `--stat`, without documentation files; verification commands from the package manifest or CI that run locally; project area. Group by area so that three can be picked from different ones.
+For each return: hash and date; whether it was made after the documents were written (dates in `docs/agents/bootstrap-state.md`, or the documents' first commits); parent commit; task wording from the commit message — without file names, hashes, ticket numbers or tracker links; a flag if the message does not say which object to change; expected files and areas of code and tests from `--stat`, without documentation files; verification commands from the package manifest or CI that run locally; project area. Group by area so that three can be picked from different ones.
 
 Write to `docs/agents/scratch/reader-test-candidates.md`; return one line with the number of candidates.

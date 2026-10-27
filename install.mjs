@@ -87,7 +87,7 @@ for (const t of targets) {
     const r = `${L.agents}/${ag.name}.${ext}`;
     if (writeOwned(r, dst => fs.writeFileSync(dst, render(t, ag, models[ag.name])))) log(`agent  ${r}`);
   }
-  if (L.commands) for (const [name, what] of [['docs-bootstrap', "Build the project's reference documentation"], ['docs-check', "Check the project's documentation with a reader test"]]) {
+  if (L.commands) for (const [name, what] of [['docs-bootstrap', "Build the project's reference documentation"], ['docs-check', "Optional: test the project's documentation with a fresh reader"]]) {
     const r = `${L.commands}/${name}.md`;
     const body = `---\ndescription: ${JSON.stringify(`${what} (${name})`)}\n---\nLoad the \`${name}\` skill and follow it. Arguments from the developer, if any: $ARGUMENTS\n`;
     if (writeOwned(r, dst => fs.writeFileSync(dst, body))) log(`command /${name}`);

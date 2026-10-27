@@ -74,7 +74,7 @@ if (harness === 'claude') {
   input = `${reader.prompt}\n\n${ask}`;
 } else if (harness === 'codex') {
   cmd = 'codex';
-  args = ['exec', '-C', SNAP, '-s', 'read-only', '--skip-git-repo-check', '--ephemeral', '-c', 'mcp_servers={}',
+  args = ['exec', '-C', SNAP, '-s', 'read-only', '--skip-git-repo-check', '--ephemeral', ...codexMcpOff(),
     ...(reader.model ? ['-m', reader.model] : []), '-o', plan, '-'];
   input = `${reader.prompt}\n\n${ask}`;
   fromFile = true;
@@ -124,6 +124,23 @@ function exportParent(keep) {
     execFileSync('git', ['checkout-index', '-f', '-z', '--stdin', `--prefix=${SNAP.split(path.sep).join('/')}/`],
       { cwd: ROOT, env: genv, input: list.join('\0'), stdio: ['pipe', 'ignore', 'pipe'] });
   } finally { fs.rmSync(index, { force: true }); }
+}
+// `-c mcp_servers={}` is merged into the user's table and disables nothing. Plugin and app servers go with
+// their features; every server from config.toml is switched off by name. A name with a dot cannot be
+// addressed in a `-c` path.
+function codexMcpOff() {
+  const off = ['--disable', 'plugins', '--disable', 'apps'];
+  const ls = [...off, 'mcp', 'list', '--json'];
+  let list;
+  try {
+    const out = execFileSync(win ? ['codex', ...ls].join(' ') : 'codex', win ? [] : ls,
+      { cwd: SNAP, encoding: 'utf8', shell: win, stdio: ['ignore', 'pipe', 'pipe'] });
+    list = JSON.parse(out);
+  } catch (e) { die(`codex mcp list --json failed, cannot turn MCP servers off: ${(e.stderr || e.message).toString().trim()}`); }
+  const names = list.filter(s => s.enabled !== false).map(s => s.name);
+  const dotted = names.filter(n => n.includes('.'));
+  if (dotted.length) die(`MCP server names with a dot cannot be turned off for the reader: ${dotted.join(', ')}`);
+  return [...off, ...names.flatMap(n => ['-c', `mcp_servers.${n}.enabled=false`])];
 }
 // The installed docs-reader: Markdown with frontmatter (Claude Code, OpenCode) or TOML (Codex).
 function parseReader(text) {

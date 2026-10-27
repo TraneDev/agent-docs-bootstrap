@@ -22,7 +22,7 @@ Fresh clone of the source at the new commit → diff against the copy → review
 ## Known quirks
 
 - `grill-with-docs` sets `disable-model-invocation: true`: Claude Code and Codex (via `agents/openai.yaml`) only run it when the user asks; OpenCode ignores the field. The kit's own workflow does not depend on it.
-- `doc-coauthoring`: its "Reader Testing" step suggests opening a new chat on claude.ai. In this kit `docs-check` replaces that step; only the Context Gathering and Refinement stages are used.
+- `doc-coauthoring`: its "Reader Testing" step suggests opening a new chat on claude.ai. In this kit that step is skipped (the optional `docs-check` skill covers it); only the Context Gathering and Refinement stages are used.
 - `diataxis-audit` links to `diataxis-create`, `diataxis-convert` and `diataxis-plan`, which are not bundled; those links do not resolve, which is expected.
 - `agents/openai.yaml` inside Matt Pocock's skills is Codex UI metadata; other harnesses ignore it.
 

@@ -14,7 +14,6 @@ agent-docs-bootstrap version: <first line of `.agent-docs-bootstrap`, if present
 | 3. Architecture: C4 Context + Container | not started | | |
 | 4. How-to guides | not started | | |
 | 5. AGENTS.md (root and nested) | not started | | |
-| 6. Reader test | not started | | |
 
 Statuses: `not started`, `in progress`, `waiting for answer`, `done`, `skipped` (with reason).
 

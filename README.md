@@ -1,12 +1,12 @@
-# Build docs your coding agents can work from, then prove they do
+# Build docs your coding agents can work from
 
 [![npm](https://img.shields.io/npm/v/agent-docs-bootstrap)](https://www.npmjs.com/package/agent-docs-bootstrap)
 [![check](https://github.com/TraneDev/agent-docs-bootstrap/actions/workflows/check.yml/badge.svg)](https://github.com/TraneDev/agent-docs-bootstrap/actions/workflows/check.yml)
 [![license: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-**agent-docs-bootstrap** is a set of skills and subagents for **Claude Code**, **Codex** and **OpenCode**. It interviews your team and writes the glossary, decision records, architecture, how-tos and `AGENTS.md` that coding agents and new developers need. Then it **tests** them: a fresh agent plans real past tasks from your git history, and what it misses against the real commit becomes a list of doc fixes for you to approve.
+**agent-docs-bootstrap** is a set of skills and subagents for **Claude Code**, **Codex** and **OpenCode**. It interviews your team and writes the glossary, decision records, architecture, how-tos and `AGENTS.md` that coding agents and new developers need. If you want to see how well they work, an **optional** check has a fresh agent plan a task from the docs alone: one you bring, or real past tasks from your git history compared with the commits that solved them.
 
-[Quick start](#quick-start) · [How it works](#how-it-works) · [Install options](#install-options) · [Harness differences](#harness-differences)
+[Quick start](#quick-start) · [How it works](#how-it-works) · [Optional: test the docs](#optional-test-the-docs-with-docs-check) · [Install options](#install-options) · [Harness differences](#harness-differences)
 
 ## Quick start
 
@@ -31,13 +31,13 @@ You need Node.js 18+ and a git repository.
 
 3. Restart the agent session and start the build:
 
-   | Harness | Build the docs | Check the docs |
+   | Harness | Build the docs | Test the docs (optional) |
    |---|---|---|
    | Claude Code | `/docs-bootstrap` | `/docs-check` |
    | Codex | `$docs-bootstrap` | `$docs-check` |
    | OpenCode | `/docs-bootstrap` | `/docs-check` |
 
-   Or just ask: "document this project", "check our docs with a reader test".
+   Or just ask: "document this project", "test our docs with a fresh reader".
 
 Progress is saved in `docs/agents/bootstrap-state.md`, so you can stop and continue in a later session.
 
@@ -55,15 +55,18 @@ The work goes in stages. Each stage ends with a stop for your review.
 | 3. Architecture | `docs/architecture.md` with C4 Context and Container diagrams |
 | 4. How-to | `docs/how-to/*.md` for recurring tasks |
 | 5. AGENTS.md | Root and nested `AGENTS.md`, wired up for Claude Code too |
-| 6. Reader test | Gaps a fresh agent hits, fixed |
 
 A new project gets a shorter track: interview the idea, plan the architecture, write a starter `AGENTS.md`, and review after the first features.
 
 External documentation is read through whatever MCP server your session already has. The kit does not ship or configure one.
 
-### Test the docs: `docs-check`
+### Optional: test the docs with `docs-check`
 
-Whether the documentation helps an agent is answered with an experiment, not an opinion:
+The build does not depend on it, and it costs a separate agent process per task, several minutes each. Use it when you want to see where a fresh agent stumbles on your docs, or to collect numbers across projects. It is a diagnostic: it shows gaps, it does not prove the docs good.
+
+**Own task.** Give it a task in your words, for example a ticket you are about to start. A fresh reader plans it from a snapshot of the current commit and your docs; you read the plan, what it had to guess and its questions, and decide what the docs should have answered.
+
+**History.** Three real past tasks, compared with the commits that solved them. Best run a few weeks after the build, on commits the docs could not know:
 
 ```mermaid
 flowchart LR
@@ -74,9 +77,9 @@ flowchart LR
     E --> F[You approve, fixes applied]
 ```
 
-1. The agent picks three real past tasks from git history and drops any whose solution is already in the code or the docs.
+1. The agent picks three real past tasks from git history, preferring commits made after the docs were written, and drops any whose solution is already in the code or the docs.
 2. For each task, the code is extracted **as it was before the task**, outside your repository, and your current documents from the working tree go on top.
-3. A fresh reader plans the task. It runs as a **separate process** of your harness (`claude -p`, `codex exec`, `opencode run`), read-only, with no history, no MCP servers and no access to your repository: a subagent of the same session could find the solution in your current code.
+3. A fresh reader plans the task. It runs as a **separate process** of your harness (`claude -p`, `codex exec`, `opencode run`), read-only, with no history, no MCP tools and no access to your repository: a subagent of the same session could find the solution in your current code.
 4. Its plan is compared with what the real commit changed. Missed files, missed verification commands, wrong terms, rejected approaches and guesses are **gaps**.
 5. The gaps become one list of fixes, grouped by document. You strike out what came from a poor commit rather than the docs, and the rest is applied.
 
@@ -163,7 +166,7 @@ Where a guarantee is "instructions only", tighten it with your harness's own per
 
 ```text
 skills/docs-bootstrap/   orchestrator: SKILL.md, references/ (formats, scout briefs), templates/
-skills/docs-check/       the reader test: SKILL.md, scripts/reader-run.mjs (snapshot and reader process)
+skills/docs-check/       optional reader test: SKILL.md, templates/, scripts/reader-run.mjs (snapshot and reader process)
 skills/third-party/      skills by other authors, unmodified, each with its LICENSE
 agents/                  docs-scout, docs-reader: one prompt + per-harness frontmatter blocks
 package.json             npm package metadata and the version
