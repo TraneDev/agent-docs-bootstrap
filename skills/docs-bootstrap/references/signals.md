@@ -15,7 +15,7 @@ The scout does not know in advance where things live in a given stack. It determ
 
 - Framework concepts (component, service, store, guard, DTO as a pattern) are not domain terms.
 - A code folder is not a container unless it deploys on its own.
-- A dependency is not an ADR until it passes the three criteria in `ADR-FORMAT.md`.
+- A dependency is not an ADR until it passes the three criteria in [ADR-FORMAT.md](../vendor/domain-modeling/ADR-FORMAT.md).
 
 ## Name conflict detector
 

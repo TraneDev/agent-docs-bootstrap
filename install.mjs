@@ -10,7 +10,9 @@
 //   claude    skills → .claude/skills/   agents → .claude/agents/*.md
 //   codex     skills → .agents/skills/   agents → .codex/agents/*.toml
 //   opencode  skills → .agents/skills/   agents → .opencode/agents/*.md   commands → .opencode/commands/*.md
-// Installed paths are listed in .agent-docs-bootstrap; only those are ever replaced or removed.
+// Installed paths are listed in .agent-docs-bootstrap; only those are ever replaced or removed, and only if a line
+// has the shape of a path the kit writes (<layout folder>/<kit name>). On an update, listed paths this version no
+// longer ships are removed.
 // No network access, no changes to harness settings, no admin rights.
 
 import fs from 'node:fs';
@@ -36,7 +38,25 @@ const exists = (p) => { try { fs.lstatSync(p); return true; } catch { return fal
 if (!GLOBAL && (BASE === KIT || BASE.startsWith(KIT + path.sep)))
   die(`This is the kit's own directory (${BASE}). Run it from the project root: cd <project> && node ${path.join(KIT, 'install.mjs')} --target …`);
 
-const oldList = read(MARKER).split('\n').filter(l => l && !l.startsWith('version='));
+const codexHome = process.env.CODEX_HOME ? path.relative(BASE, process.env.CODEX_HOME) : '.codex';
+const ocConfig = process.env.OPENCODE_CONFIG_DIR ? path.relative(BASE, process.env.OPENCODE_CONFIG_DIR) : path.join('.config', 'opencode');
+const LAYOUT = {
+  claude:   { skills: '.claude/skills', agents: '.claude/agents' },
+  codex:    { skills: '.agents/skills', agents: GLOBAL ? path.join(codexHome, 'agents') : '.codex/agents' },
+  opencode: { skills: '.agents/skills', agents: GLOBAL ? path.join(ocConfig, 'agents') : '.opencode/agents',
+              commands: GLOBAL ? path.join(ocConfig, 'commands') : '.opencode/commands' },
+};
+
+// Every name any version of the kit installed. Add to it, never remove: an old install's marker may list them.
+const SHIPPED = new Set(['docs-bootstrap', 'docs-check', 'docs-scout', 'docs-reader',
+  'grilling', 'domain-modeling', 'writing-for-agents', 'doc-coauthoring', 'diataxis-audit', 'grill-with-docs']);
+const layoutDirs = new Set(Object.values(LAYOUT).flatMap(L => Object.values(L)).map(d => path.normalize(d)));
+// The marker is committed, so a bad merge or PR can add any line to it. Only a line shaped like a path the kit
+// writes, <layout folder>/<shipped name>[.md|.toml], is trusted; nothing else is ever replaced or removed.
+const isOwnedPath = (r) => layoutDirs.has(path.normalize(path.dirname(r))) && SHIPPED.has(path.basename(r).replace(/\.(md|toml)$/, ''));
+const markerLines = read(MARKER).split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('version='));
+for (const l of markerLines) if (!isOwnedPath(l)) warn(`ignored '${l}' in .agent-docs-bootstrap: not a path this kit installs`);
+const oldList = markerLines.filter(isOwnedPath);
 if (a.uninstall) { uninstall(); process.exit(0); }
 
 if (!a.target) usage(1, 'Missing --target.');
@@ -48,15 +68,6 @@ if (!GLOBAL) {
   if (!fs.existsSync(path.join(BASE, '.git')) && !a.yes)
     die(`No .git here (${BASE}) — is this the project root? Run from the root or add --yes.`);
 }
-
-const codexHome = process.env.CODEX_HOME ? path.relative(BASE, process.env.CODEX_HOME) : '.codex';
-const ocConfig = process.env.OPENCODE_CONFIG_DIR ? path.relative(BASE, process.env.OPENCODE_CONFIG_DIR) : path.join('.config', 'opencode');
-const LAYOUT = {
-  claude:   { skills: '.claude/skills', agents: '.claude/agents' },
-  codex:    { skills: '.agents/skills', agents: GLOBAL ? path.join(codexHome, 'agents') : '.codex/agents' },
-  opencode: { skills: '.agents/skills', agents: GLOBAL ? path.join(ocConfig, 'agents') : '.opencode/agents',
-              commands: GLOBAL ? path.join(ocConfig, 'commands') : '.opencode/commands' },
-};
 
 const installed = new Set();
 const ours = (r) => oldList.includes(r);
@@ -93,6 +104,11 @@ for (const t of targets) {
     if (writeOwned(r, dst => fs.writeFileSync(dst, body))) log(`command /${name}`);
   }
 }
+
+// Paths an earlier version installed into these targets' folders and this version no longer ships.
+const ownDirs = new Set(targets.flatMap(t => Object.values(LAYOUT[t])));
+for (const r of oldList)
+  if (!installed.has(r) && ownDirs.has(path.dirname(r)) && exists(abs(r))) { fs.rmSync(abs(r), { recursive: true, force: true }); log(`removed  ${r} (no longer shipped)`); }
 
 // Keep entries of earlier installs (e.g. another target) that are still on disk.
 const keep = oldList.filter(r => !installed.has(r) && exists(abs(r)));
@@ -139,14 +155,14 @@ function parseAgent(file) {
 // ---------- helpers
 function skillDirs() {
   const out = [];
-  for (const base of [path.join(KIT, 'skills'), path.join(KIT, 'skills', 'third-party')])
-    for (const e of fs.readdirSync(base, { withFileTypes: true })) {
-      const d = path.join(base, e.name);
-      if (!e.isDirectory() || !fs.existsSync(path.join(d, 'SKILL.md'))) continue;
-      const fm = (read(path.join(d, 'SKILL.md')).match(/^name:\s*["']?([^"'\n]+)["']?\s*$/m) || ['', ''])[1].trim();
-      if (!NAME_RE.test(e.name) || fm !== e.name) { warn(`skipped skill ${e.name}: frontmatter name '${fm}' must match the folder`); continue; }
-      out.push(d);
-    }
+  const base = path.join(KIT, 'skills');
+  for (const e of fs.readdirSync(base, { withFileTypes: true })) {
+    const d = path.join(base, e.name);
+    if (!e.isDirectory() || !fs.existsSync(path.join(d, 'SKILL.md'))) continue;
+    const fm = (read(path.join(d, 'SKILL.md')).match(/^name:\s*["']?([^"'\n]+)["']?\s*$/m) || ['', ''])[1].trim();
+    if (!NAME_RE.test(e.name) || fm !== e.name) { warn(`skipped skill ${e.name}: frontmatter name '${fm}' must match the folder`); continue; }
+    out.push(d);
+  }
   return out;
 }
 function uninstall() {
@@ -160,6 +176,8 @@ function uninstall() {
 function parseArgs(argv) {
   const o = {}; const withVal = new Set(['target', 'project', 'scout-model', 'reader-model']);
   for (let i = 0; i < argv.length; i++) {
+    const eq = argv[i].match(/^--([a-z-]+)=(.*)$/);
+    if (eq && withVal.has(eq[1])) { o[eq[1]] = eq[2]; continue; }
     const k = argv[i].replace(/^--/, '');
     if (argv[i] === '-h' || k === 'help') o.help = true;
     else if (withVal.has(k)) { if (i + 1 >= argv.length) die(`--${k} needs a value`); o[k] = argv[++i]; }

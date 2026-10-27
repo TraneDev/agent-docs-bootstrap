@@ -2,20 +2,23 @@
 // docs-check steps 2–3: a history-free snapshot outside the repository and a fresh reader started as a
 // separate process of your harness. Works the same from bash, PowerShell and cmd; needs git and Node 18+.
 //
-//   node <skills>/docs-check/scripts/reader-run.mjs <run dir> <N> --harness claude|codex|opencode [--reader <path>]
+//   node <skills>/docs-check/scripts/reader-run.mjs <run dir> <N> --harness claude|codex|opencode [--reader <path>] [--timeout-min <m>]
 //   node <skills>/docs-check/scripts/reader-run.mjs <run dir> <N> --snapshot-only
 //
 // <run dir> holds tasks.json: { "tasks": [ { "n": 1, "parent": "<hash>", "task": "<wording>" } ] }.
 // Writes rt-<N>-plan.md (the reader's answer) and rt-<N>-log.md there; prints a short summary.
+// --timeout-min stops the reader after that many minutes (default 12).
 
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { execFileSync, spawn } from 'node:child_process';
+import { createHash } from 'node:crypto';
 
 const a = parseArgs(process.argv.slice(2));
 if (a.help || a._.length < 2) {
-  console.log(fs.readFileSync(new URL(import.meta.url), 'utf8').split('\n').slice(1, 10).map(l => l.replace(/^\/\/ ?/, '')).join('\n'));
+  const src = fs.readFileSync(new URL(import.meta.url), 'utf8').split('\n').slice(1);
+  console.log(src.slice(0, src.findIndex(l => !l.startsWith('//'))).map(l => l.replace(/^\/\/ ?/, '')).join('\n'));
   process.exit(a.help ? 0 : 1);
 }
 
@@ -26,15 +29,21 @@ const spec = JSON.parse(read(path.join(RUN, 'tasks.json'), 'no tasks.json in the
 const task = (spec.tasks || []).find(t => Number(t.n) === N) || die(`tasks.json has no task n=${N}`);
 if (!task.parent || !task.task) die(`task ${N} has no parent or task`);
 
-const SNAPS = path.join(os.tmpdir(), `agent-docs-check-${path.basename(ROOT)}`);
+// The path hash keeps two repositories with the same folder name apart.
+const SNAPS = path.join(os.tmpdir(), `agent-docs-check-${path.basename(ROOT)}-${createHash('sha1').update(ROOT).digest('hex').slice(0, 8)}`);
 const SNAP = path.join(SNAPS, `rt-${N}`);
 const TIMEOUT_MS = Number(a['timeout-min'] || 12) * 60 * 1000;
 const win = process.platform === 'win32';
 
-// Documents the kit builds; kit-installed paths and its run files never reach the reader.
-const kitPaths = read(path.join(ROOT, '.agent-docs-bootstrap'), '', true).split('\n').filter(l => l && !l.startsWith('version='));
+// Documents the kit builds; kit-installed paths and its run files never reach the reader. The marker is committed
+// and could hold any line, so only lines shaped like an installed path count (a line `docs` would hide every document).
+const KIT_DIRS = ['.claude/skills', '.claude/agents', '.agents/skills', '.codex/agents', '.opencode/agents', '.opencode/commands'];
+const kitPaths = read(path.join(ROOT, '.agent-docs-bootstrap'), '', true).split('\n').map(l => l.trim())
+  .filter(l => KIT_DIRS.includes(path.posix.dirname(l)) && /^[a-z0-9-]+(\.md|\.toml)?$/.test(path.posix.basename(l)));
 const isKit = (p) => p === '.agent-docs-bootstrap' || p.startsWith('docs/agents/') || kitPaths.some(k => p === k || p.startsWith(k + '/'));
-const isDoc = (p) => /(^|\/)(AGENTS\.md|CONTEXT[^/]*\.md)$/.test(p) || p === 'CLAUDE.md' || p.startsWith('docs/');
+// README and other files stay as they were in the parent commit, like the code: they are the project as it was,
+// not the documents under test, and today's README may already describe the solution.
+const isDoc = (p) => /(^|\/)(AGENTS\.md|CLAUDE\.md|CONTEXT[^/]*\.md)$/.test(p) || p.startsWith('docs/');
 
 // ---------- snapshot: the parent's code without documents, today's documents from the working tree on top
 fs.rmSync(SNAP, { recursive: true, force: true });
@@ -97,7 +106,9 @@ child.stdin.end(input);
 let out = '', err = '';
 child.stdout.on('data', d => { out += d; });
 child.stderr.on('data', d => { err += d; });
-const timer = setTimeout(() => { err += `\nstopped after ${TIMEOUT_MS / 60000} min`; child.kill(); }, TIMEOUT_MS);
+// With shell: true on Windows, child.kill() stops only cmd.exe; taskkill /T takes the CLI with it.
+const stop = () => win ? spawn('taskkill', ['/pid', String(child.pid), '/T', '/F'], { stdio: 'ignore' }) : child.kill();
+const timer = setTimeout(() => { err += `\nstopped after ${TIMEOUT_MS / 60000} min`; stop(); }, TIMEOUT_MS);
 child.on('error', e => die(`${cmd} did not start: ${e.message}`));
 child.on('close', code => {
   clearTimeout(timer);

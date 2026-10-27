@@ -45,7 +45,6 @@ opencode: |
       "*": deny
       "docs-bootstrap": allow
       "docs-check": allow
-      "diataxis-audit": allow
 ---
 
 You are a scout. Your job is to collect facts about the project and return them to the lead agent. You write to the repository only in the scratch folder `docs/agents/scratch/`, when the brief asks for a file.

@@ -27,7 +27,7 @@ Use the tools the session has for the source listed in `docs/agents/sources.md` 
 
 **Batches 1..K — classification.** For each page in the range:
 1. Get the structure, if the source can return it without the body: section headings, presence of code, tables, step lists.
-2. Determine the Diátaxis type from title and structure (criteria — the `diataxis-audit` skill). Numbered steps → how-to; parameter and API tables → reference; "why" and history → explanation; learning from zero → tutorial; a mix → mixed.
+2. Determine the Diátaxis type from title and structure (criteria — `vendor/diataxis-audit/diataxis-audit.md` in the `docs-bootstrap` skill folder; the lead gives its full path). Numbered steps → how-to; parameter and API tables → reference; "why" and history → explanation; learning from zero → tutorial; a mix → mixed.
 3. Only if the type is unclear, read the start of the body: at most 2000 characters. Read no further.
 4. Note whether the page refers to files or commands (code blocks, paths) — without checking; checks happen at stages 2 and 4.
 
@@ -43,7 +43,7 @@ Return these sections:
 
 1. **Terms** — for each: term, name in code, a one-sentence draft definition without implementation details, evidence files (up to 3), synonyms seen in code, UI strings, API. Leave out framework concepts.
 2. **Name conflicts** — one entity under different names (frontend/backend, DTO/UI, code/UI strings) and one name for different entities.
-3. **ADR candidates** — what was decided (fact), evidence, a hypothesis for the reason marked `ASSUMPTION`. Run each through the three criteria in `ADR-FORMAT.md` of the `domain-modeling` skill; for rejected ones name the failed criterion.
+3. **ADR candidates** — what was decided (fact), evidence, a hypothesis for the reason marked `ASSUMPTION`. Run each through the three criteria in `vendor/domain-modeling/ADR-FORMAT.md` of the `docs-bootstrap` skill folder (the lead gives its full path); for rejected ones name the failed criterion.
 4. **Check against external docs** — for each term and decision mentioned in the 1.5 audit: matches the code / differs (how) / not found in code. Read pages selectively: find the relevant section first, then read only that part, in chunks of at most 4000 characters. No more than 5 pages per run; if more are needed, return the list and the lead will start another run.
 
 ## Stage 3. Architecture

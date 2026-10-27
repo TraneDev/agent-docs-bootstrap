@@ -4,6 +4,23 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versions follo
 
 ## [Unreleased]
 
+### Changed
+- Third-party skills are bundled inside `docs-bootstrap` as guides in `vendor/<name>/`, read by path, instead of being installed as separate skills. Each `SKILL.md` is renamed to `<name>.md`, content unchanged: Codex and OpenCode find a nested `SKILL.md` and register it as a skill, and OpenCode silently keeps one of two skills with the same name. A user's own `grilling` or `domain-modeling` no longer clashes with the kit's copy. The install now has two skills, `docs-bootstrap` and `docs-check`.
+- The installer removes paths an earlier version installed into the same targets and this version no longer ships, so an update from 0.2.0 drops the old third-party skill folders.
+- README, package description and keywords: a set of agent skills for any agent that runs them; the installer sets up Claude Code, Codex and OpenCode. New "Other agents" section. `docs-check` falls back to `--snapshot-only` for any other harness.
+- `docs-scout` for OpenCode no longer needs the `diataxis-audit` skill permission; the brief gives it the guide's path.
+
+### Fixed
+- `--uninstall` and updates removed every path listed in `.agent-docs-bootstrap`, which is committed, so a line added by a bad merge (`src`, `../x`) deleted project or outside folders. Only lines shaped like a path the kit installs, `<layout folder>/<kit name>`, are now trusted; others are ignored with a warning and dropped from the marker. `reader-run.mjs` applies the same rule, so a stray `docs` line no longer hides every document from the snapshot.
+- `docs-check` snapshot: a nested `CLAUDE.md` came from the parent commit instead of the working tree. `README` stays from the parent commit on purpose, now stated in the skill.
+- README no longer says the Codex reader has no access to the repository: its read-only sandbox blocks writes, not reading other folders.
+- `docs-check`: global instructions wording no longer claims `claude -p --restricted` loads `~/.claude/CLAUDE.md`.
+- `reader-run.mjs`: `--timeout-min` is documented; on Windows the timeout stops the CLI, not only its shell; snapshot folders of two repositories with the same name no longer collide.
+- `install.mjs` accepts `--flag=value` as well as `--flag value`.
+
+### Removed
+- `grill-with-docs`: the kit did not use it, and it only calls the `grilling` and `domain-modeling` skills, which are no longer installed as skills.
+
 ## [0.2.0] - 2026-10-27
 
 ### Added

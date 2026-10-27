@@ -53,16 +53,16 @@ The reader must not see the solution, the history, your session's instructions o
 
 What the script does:
 
-- the snapshot is the parent's code without the documents and the kit's installed files, with the current documents from the working tree on top, committed or not (git-ignored and deleted ones are skipped, `docs/agents/` never goes in). Do not keep unfinished hand edits in the documents during a run: the reader gets them as they are;
+- the snapshot is the parent's code without the documents and the kit's installed files, with the current documents from the working tree on top, committed or not (git-ignored and deleted ones are skipped, `docs/agents/` never goes in). Do not keep unfinished hand edits in the documents during a run: the reader gets them as they are. `README` and other files stay as they were in the parent commit, like the code: today's `README` may already describe the solution;
 - the snapshot gets an empty `git init`, which stops the harness from loading `AGENTS.md` or `CLAUDE.md` from parent directories. No installed dependencies: the reader builds a plan, it does not execute it;
 - the reader: Claude Code `claude -p --restricted` with only `Read`, `Grep`, `Glob` and no MCP servers; Codex `codex exec -s read-only` with every MCP server, plugin and app turned off; OpenCode `opencode run --pure` with the `docs-reader` agent, whose permissions deny everything but reading, MCP tools included. The prompt is the installed `docs-reader`, the task goes through stdin;
 - it writes `rt-<N>-plan.md` and `rt-<N>-log.md` to the run directory and prints a three-line summary.
 
 Non-zero exit or "plan EMPTY" → show the human the summary and `rt-<N>-log.md`; do not guess. A plan that cites files outside the snapshot, the history, a tracker or external docs is invalid: note why in `reader-tests.md` and rerun.
 
-The user's global instructions (`~/.claude/CLAUDE.md`, `~/.codex/AGENTS.md`, `~/.config/opencode/AGENTS.md`) cannot be switched off this way. If they are about this project, ask the human to move them aside for the test.
+The user's global instructions may still reach the reader: Codex loads `~/.codex/AGENTS.md`, OpenCode `~/.config/opencode/AGENTS.md`; whether `claude -p --restricted` loads `~/.claude/CLAUDE.md` is not documented. If they are about this project, ask the human to move them aside for the test.
 
-No `node`, or the harness CLI is not in PATH → do not play the reader yourself: you have seen the docs and the history. Run the script with `--snapshot-only` (it prints the snapshot path) and ask the human to start a new agent session with its working directory set to that path, paste the `docs-reader` prompt and the task, and save the answer to `rt-<N>-plan.md`.
+Your harness is not `claude`, `codex` or `opencode`, its CLI is not in PATH, or there is no `node` → do not play the reader yourself: you have seen the docs and the history. Run the script with `--snapshot-only` (it prints the snapshot path) and ask the human to start a new agent session with its working directory set to that path, paste the `docs-reader` prompt and the task, and save the answer to `rt-<N>-plan.md`.
 
 ## Step 4. Gaps
 

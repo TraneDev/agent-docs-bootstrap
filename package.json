@@ -1,7 +1,7 @@
 {
   "name": "agent-docs-bootstrap",
   "version": "0.2.0",
-  "description": "Skills and subagents that build reference documentation for a codebase and test it with a fresh agent. For Claude Code, Codex and OpenCode.",
+  "description": "Agent skills that build reference documentation for a codebase (glossary, ADRs, architecture, how-tos, AGENTS.md) through interviews with the team, with an optional check by a fresh agent. Works with any agent that runs skills; the installer sets up Claude Code, Codex and OpenCode.",
   "license": "MIT",
   "repository": { "type": "git", "url": "git+https://github.com/TraneDev/agent-docs-bootstrap.git" },
   "homepage": "https://github.com/TraneDev/agent-docs-bootstrap#readme",
@@ -9,5 +9,5 @@
   "bin": { "agent-docs-bootstrap": "install.mjs" },
   "files": ["install.mjs", "agents/", "skills/", "THIRD_PARTY.md", "CHANGELOG.md"],
   "engines": { "node": ">=18" },
-  "keywords": ["claude-code", "codex", "opencode", "agents-md", "documentation", "skills"]
+  "keywords": ["claude-code", "codex", "opencode", "agents-md", "documentation", "skills", "agent-skills", "ai-agents", "coding-agents"]
 }
