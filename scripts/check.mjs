@@ -105,7 +105,8 @@ try {
     '.codex/agents/docs-reader.toml': [/^name = "docs-reader"$/m, /^description = "/m, /^developer_instructions = '''$/m],
     '.codex/agents/docs-scout.toml': [/^name = "docs-scout"$/m],
     '.opencode/agents/docs-reader.md': [/^mode: all$/m, /^  "\*": deny$/m],
-    '.agents/skills/docs-check/scripts/reader-run.mjs': [],
+    '.agents/skills/docs-check/scripts/reader-run.mjs': [], '.agents/skills/docs-check/scripts/leak-check.mjs': [],
+    '.claude/skills/docs-check/scripts/docs-paths.mjs': [],
     '.opencode/agents/docs-scout.md': [/^mode: subagent$/m],
     '.opencode/commands/docs-check.md': [/\$ARGUMENTS/],
     '.agent-docs-bootstrap': [/^version=\d+\.\d+\.\d+$/m],
@@ -164,26 +165,51 @@ try {
   const put = (f, s) => { fs.mkdirSync(path.dirname(path.join(snap, f)), { recursive: true }); fs.writeFileSync(path.join(snap, f), s); };
   git('init', '-q');
   for (const f of ['docs/x.md', 'docs/removed-later.md', 'src/AGENTS.md', 'docs/agents/state.md', 'src/a.js', '.claude/skills/docs-check/SKILL.md']) put(f, 'x\n');
-  put('AGENTS.md', 'old\n'); put('app/CLAUDE.md', 'old\n'); put('README.md', 'old\n');
+  put('AGENTS.md', 'old\n'); put('app/CLAUDE.md', 'old\n'); put('README.md', 'old\n'); put('app/docs/adr/0001.md', 'old\n');
+  put('site/docs/package.json', '{}\n'); put('site/docs/src/page.js', 'old\n');
   put('.agent-docs-bootstrap', 'version=0.0.0\n.claude/skills/docs-check\ndocs\nsrc\n');
   git('add', '.'); git('commit', '-qm', 'parent');
   const parent = git('rev-parse', 'HEAD');
   git('rm', '-q', 'docs/removed-later.md', 'src/AGENTS.md'); put('src/b.js', 'x\n'); git('add', '.'); git('commit', '-qm', 'solution');
-  put('AGENTS.md', 'new\n'); put('app/AGENTS.md', 'x\n'); put('app/CLAUDE.md', 'new\n'); put('README.md', 'new\n'); put('docs/new-howto.md', 'x\n'); put('docs/ignored.log', 'x\n');
+  put('AGENTS.md', 'new\n'); put('app/AGENTS.md', 'x\n'); put('app/CLAUDE.md', 'new\n'); put('README.md', 'new\n');
+  put('app/docs/adr/0001.md', 'new\n'); put('app/docs/adr/0002.md', 'new\n'); put('site/docs/src/page.js', 'new\n'); put('docs/new-howto.md', 'x\n'); put('docs/ignored.log', 'x\n');
   put('.gitignore', 'docs/*.log\n'); put('docs/agents/scratch/runs/tasks.json', JSON.stringify({ tasks: [{ n: 1, parent, task: 'x' }] }));
   built = execFileSync(process.execPath, [path.join(ROOT, 'skills', 'docs-check', 'scripts', 'reader-run.mjs'), 'docs/agents/scratch/runs', '1', '--snapshot-only'],
     { cwd: snap, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
   const got = walk(built).map(f => path.relative(built, f).split(path.sep).join('/')).sort();
-  const want = ['AGENTS.md', 'README.md', 'app/AGENTS.md', 'app/CLAUDE.md', 'docs/new-howto.md', 'docs/x.md', 'src/a.js'];
+  const want = ['AGENTS.md', 'README.md', 'app/AGENTS.md', 'app/CLAUDE.md', 'app/docs/adr/0001.md', 'app/docs/adr/0002.md',
+    'docs/new-howto.md', 'docs/x.md', 'site/docs/package.json', 'site/docs/src/page.js', 'src/a.js'];
   if (got.join() !== want.join()) err(`docs-check snapshot has [${got}], expected [${want}]`);
   else {
-    for (const f of ['AGENTS.md', 'app/CLAUDE.md']) if (read(path.join(built, f)) !== 'new\n') err(`docs-check snapshot: ${f} is not the working-tree version`);
-    if (read(path.join(built, 'README.md')) !== 'old\n') err('docs-check snapshot: README.md is not the parent version');
+    for (const f of ['AGENTS.md', 'app/CLAUDE.md', 'app/docs/adr/0001.md']) if (read(path.join(built, f)) !== 'new\n') err(`docs-check snapshot: ${f} is not the working-tree version`);
+    // A nested docs/ with its own package manifest is a documentation site: code, from the parent.
+    for (const f of ['README.md', 'site/docs/src/page.js']) if (read(path.join(built, f)) !== 'old\n') err(`docs-check snapshot: ${f} is not the parent version`);
   }
   if (!fs.existsSync(path.join(built, '.git'))) err('docs-check snapshot: no empty git repository');
 } catch (e) {
   err(`docs-check snapshot check failed: ${e.stderr || e.message}`);
 } finally { for (const d of [snap, built && path.dirname(built)]) if (d) fs.rmSync(d, { recursive: true, force: true }); }
+
+// ---------- docs-check leak-check.mjs: names in the parent's code, in documents before and after, and the commit's doc diff
+const leak = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-docs-bootstrap-leak-'));
+try {
+  const git = (...a) => execFileSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', ...a], { cwd: leak, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+  const put = (f, s) => { fs.mkdirSync(path.dirname(path.join(leak, f)), { recursive: true }); fs.writeFileSync(path.join(leak, f), s); };
+  git('init', '-q');
+  put('docs/api/orders.md', "status 'held' is allowed\n"); put('src/a.js', 'function oldHelper() {}\n'); put('app/docs/glossary.md', 'Terms\n');
+  git('add', '.'); git('commit', '-qm', 'parent');
+  put('src/b.js', 'function computeShipping() { oldHelper(); }\n'); put('app/docs/glossary.md', 'Terms\nLate order: its delivery window has closed.\n');
+  git('add', '.'); git('commit', '-qm', 'solution');
+  const hash = git('rev-parse', 'HEAD');
+  put('docs/api/orders.md', "status 'held' is allowed\nUse computeShipping.\n"); git('commit', '-qam', 'docs later');
+  const out = execFileSync(process.execPath, [path.join(ROOT, 'skills', 'docs-check', 'scripts', 'leak-check.mjs'), hash, 'oldHelper', 'held', 'computeShipping', 'absent'],
+    { cwd: leak, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+  for (const re of [/^oldHelper: replaced: /m, /^held: fine: in the parent's documents/m, /^computeShipping: used: /m, /^absent: fine: nowhere/m,
+    /changed 1 document\(s\): app\/docs\/glossary\.md/, /^\+Late order: its delivery window/m])
+    if (!re.test(out)) err(`docs-check leak-check.mjs output does not match ${re}:\n${out}`);
+} catch (e) {
+  err(`docs-check leak check failed: ${e.stderr || e.message}`);
+} finally { fs.rmSync(leak, { recursive: true, force: true }); }
 
 // ---------- every release's install stays recognised: LEGACY in install.mjs holds what each release tag installed
 // An install whose marker lost its lines is recognised only by content, so the hashes of every released version must

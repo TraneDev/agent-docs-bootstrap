@@ -4,6 +4,17 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versions follo
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-28
+
+### Changed
+- `docs-check` leak check runs through the new `scripts/leak-check.mjs` instead of `git grep` commands in the skill. A name the documents had at the parent commit, such as a contract written before the code, no longer marks a task `used`; only a name today's documents have and the parent's did not. The script also prints what the solution commit wrote into documents, and the skill asks to judge whether it describes the solution without naming it.
+- `docs-check`: when most candidates change contracts, the glossary or ADRs in the same commit, the agent says so and suggests the own-task mode.
+- "Reader test task candidates" brief: size limits count code only, without documentation, tests, lock files and generated files, so squash-merged PRs qualify; a commit is excluded only if today's documents mention its new files and the parent's did not; commits that also change documents are flagged.
+- `docs-check` step 4: an `_Avoid_` term the reader took from the task wording, and a process step the reader cannot take in the snapshot (a tracker, a mandatory review, a persona), are not gaps.
+
+### Fixed
+- `docs-check` snapshot: a nested `docs/` folder, such as `app/docs/adr/`, came from the parent commit while `AGENTS.md` came from the working tree, so the reader met links to ADRs that were not there and reported them as gaps. `docs/` at any depth is now documents, except a nested `docs/` with its own package manifest, which is a documentation site and stays as code. The snapshot and the leak check share this rule in `scripts/docs-paths.mjs`.
+
 ## [0.4.2] - 2026-10-27
 
 ### Fixed

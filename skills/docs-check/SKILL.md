@@ -28,10 +28,21 @@ Record in `reader-tests.md`: commit hash, parent commit, task wording, reference
 
 **Reference.** Files and areas of code and tests from `git show --stat <hash>`, without unrelated changes in the commit. Verification commands only if the reader can find them in the repository (package scripts, CI jobs that run locally). No documentation files, CI scans or deploys: the reader cannot name them.
 
-**Leak check.** Before every run, take from `git show <hash>` the names the solution introduced: new files, classes, functions, endpoints, keys. Search for them:
+**Leak check.** Before every run, take from `git show <hash>` the names the solution introduced: new files, classes, functions, endpoints, keys. Run the kit's script with them, from the project root, one command, as in steps 2–3:
 
-- in the parent's code (`git grep <name> <parent>`) → found: the solution is already in the snapshot. Mark the task `replaced` and pick another;
-- in the current documents (`AGENTS.md`, `CLAUDE.md`, `CONTEXT*.md`, `docs/`) → found: the documents already know the answer and the task tests nothing. Mark it `used` and pick another.
+```
+node <skills>/docs-check/scripts/leak-check.mjs <hash> <name> <name> ...
+```
+
+It searches the same documents the snapshot takes from the working tree (`AGENTS.md`, `CLAUDE.md`, `CONTEXT*.md` and `docs/` at any depth, except a nested `docs/` with its own package manifest, which is a documentation site and counts as code) and gives a verdict per name:
+
+- `replaced` — in the parent's code: the solution is already in the snapshot. Mark the task `replaced` and pick another;
+- `used` — in today's documents but not in the parent's: the documents learned it from the solution. Mark the task `used` and pick another;
+- `fine` — in the parent's documents too, or nowhere. A name the documents had before the code (a contract or glossary entry written first) is what a developer knew at the start, not a leak.
+
+Then it prints what the commit itself wrote into documents. Read it: a glossary entry or contract can describe the solution without one name from the code ("an order counts as late once its delivery window has closed"). If it does, and today's documents still say so, mark the task `used` too.
+
+**Documents that change with the code.** If most candidates also change contracts, the glossary or ADRs in the same commit, few tasks survive the leak check. Say so to the human when you report fewer than three usable tasks, and suggest the own-task mode: it tests the same documents on a task they have not seen.
 
 ## Steps 2–3. Snapshot and reader
 
@@ -53,7 +64,7 @@ The reader must not see the solution, the history, your session's instructions o
 
 What the script does:
 
-- the snapshot is the parent's code without the documents and the kit's installed files, with the current documents from the working tree on top, committed or not (git-ignored and deleted ones are skipped, `docs/agents/` never goes in). Do not keep unfinished hand edits in the documents during a run: the reader gets them as they are. `README` and other files stay as they were in the parent commit, like the code: today's `README` may already describe the solution;
+- the snapshot is the parent's code without the documents and the kit's installed files, with the current documents from the working tree on top, committed or not (git-ignored and deleted ones are skipped, `docs/agents/` never goes in). Documents are the same set the leak check searches, including nested `docs/` folders such as `app/docs/adr/`, so a document from today never points at an ADR the snapshot has only in its old form. Do not keep unfinished hand edits in the documents during a run: the reader gets them as they are. `README` and other files stay as they were in the parent commit, like the code: today's `README` may already describe the solution;
 - the snapshot gets an empty `git init`, which stops the harness from loading `AGENTS.md` or `CLAUDE.md` from parent directories. No installed dependencies: the reader builds a plan, it does not execute it;
 - the reader: Claude Code `claude -p --restricted` with only `Read`, `Grep`, `Glob` and no MCP servers; Codex `codex exec -s read-only` with every MCP server, plugin and app turned off; OpenCode `opencode run --pure` with the `docs-reader` agent, whose permissions deny everything but reading, MCP tools included. The prompt is the installed `docs-reader`, the task goes through stdin;
 - it writes `rt-<N>-plan.md` and `rt-<N>-log.md` to the run directory and prints a three-line summary.
@@ -75,7 +86,12 @@ Compare each plan with the reference in `reader-tests.md`. Each of these is a ga
 - a solution rejected in an ADR is proposed (if `docs/adr/` exists);
 - an item under "had to search" whose answer is or should be in the documents.
 
-Not gaps, but kept:
+Not gaps:
+
+- a term from `_Avoid_` that the reader took from the task wording: an old commit message can use words the glossary has since dropped;
+- a step of the team's process the reader cannot take in the snapshot (a tracker, a mandatory review, a persona `AGENTS.md` asks for): it follows the project's instructions literally, as expected.
+
+Not gaps either, but kept:
 
 - "had to search" items only a human can answer (product clarifications) — candidates for how-tos and `AGENTS.md`;
 - **snapshot artifacts** — the documents describe a newer layout than the parent's code (a moved directory, a new test runner). Many of them mean the task is too old: replace it next time.

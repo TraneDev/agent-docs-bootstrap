@@ -17,7 +17,7 @@ You need Node.js 18+ and a git repository.
 1. From your project root, install the skills and subagents:
 
    ```bash
-   npx agent-docs-bootstrap@0.4.2 --target claude
+   npx agent-docs-bootstrap@0.5.0 --target claude
    ```
 
    Replace `claude` with `codex`, `opencode`, a list such as `claude,codex`, or `all`.
@@ -79,7 +79,7 @@ flowchart LR
     E --> F[You approve, fixes applied]
 ```
 
-1. The agent picks three real past tasks from git history, preferring commits made after the docs were written, and drops any whose solution is already in the code or the docs.
+1. The agent picks three real past tasks from git history, preferring commits made after the docs were written, and drops any whose solution is already in the code, or that the docs learned from the solution: by name, or by what the commit wrote into a contract or glossary. What the docs said before the commit, such as a contract written ahead of the code, is fair game. If your docs change in the same pull requests as the code, few tasks survive; the own-task mode then tests the same docs.
 2. For each task, the code is extracted **as it was before the task**, outside your repository, and your current documents from the working tree go on top.
 3. A fresh reader plans the task. It runs as a **separate process** of your harness (`claude -p`, `codex exec`, `opencode run`), read-only, with no history and no MCP tools, in a snapshot outside your repository: a subagent of the same session could find the solution in your current code. Claude Code and OpenCode keep the reader's file access inside the snapshot; Codex's read-only sandbox blocks writes but not reading elsewhere, so there only the reader's instructions keep it in the snapshot (see [Harness differences](#harness-differences)).
 4. Its plan is compared with what the real commit changed. Missed files, missed verification commands, wrong terms, rejected approaches and guesses are **gaps**.
@@ -103,19 +103,19 @@ All options run the same installer from your project root. Pin the version: the 
 **From npm** (recommended):
 
 ```bash
-npx agent-docs-bootstrap@0.4.2 --target claude
+npx agent-docs-bootstrap@0.5.0 --target claude
 ```
 
 **From a GitHub release tag**, when the npm registry is blocked or unavailable:
 
 ```bash
-npx github:TraneDev/agent-docs-bootstrap#v0.4.2 --target claude
+npx github:TraneDev/agent-docs-bootstrap#v0.5.0 --target claude
 ```
 
 **From a clone**, to read or change the kit first:
 
 ```bash
-git clone --branch v0.4.2 https://github.com/TraneDev/agent-docs-bootstrap.git ~/agent-docs-bootstrap
+git clone --branch v0.5.0 https://github.com/TraneDev/agent-docs-bootstrap.git ~/agent-docs-bootstrap
 node ~/agent-docs-bootstrap/install.mjs --target claude
 ```
 
@@ -186,7 +186,8 @@ Where a guarantee is "instructions only", tighten it with your harness's own per
 ```text
 skills/docs-bootstrap/   orchestrator: SKILL.md, references/ (formats, scout briefs), templates/,
                          vendor/ (guides by other authors, each with its LICENSE)
-skills/docs-check/       optional reader test: SKILL.md, templates/, scripts/reader-run.mjs (snapshot and reader process)
+skills/docs-check/       optional reader test: SKILL.md, templates/, scripts/ (reader-run.mjs: snapshot and reader process;
+                         leak-check.mjs: leak check; docs-paths.mjs: which files are documents, shared by both)
 agents/                  docs-scout, docs-reader: one prompt + per-harness frontmatter blocks
 package.json             npm package metadata and the version
 install.mjs              installer (the package's `bin`)

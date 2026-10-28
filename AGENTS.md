@@ -20,7 +20,7 @@ Do not edit the kit's files during an install, do not create `docs/agents/` in t
 
 ## Developing the kit
 
-Skills and subagents are Markdown prompts with YAML frontmatter; the only code is `install.mjs`, `scripts/check.mjs` and `skills/docs-check/scripts/reader-run.mjs`, all dependency-free Node 18+. Everything in the repository is written in English.
+Skills and subagents are Markdown prompts with YAML frontmatter; the only code is `install.mjs`, `scripts/check.mjs` and the Node scripts in `skills/docs-check/scripts/` (`reader-run.mjs`, `leak-check.mjs` and the shared `docs-paths.mjs`), all dependency-free Node 18+. Everything in the repository is written in English.
 
 ```bash
 node scripts/check.mjs                         # all repository checks; CI runs the same
@@ -36,6 +36,7 @@ node install.mjs --project <dir> --uninstall
 - **Subagents have one source.** `agents/<name>.md` holds `name`, `description`, a `claude-code: |` and an `opencode: |` block of raw frontmatter, and the prompt. `install.mjs` renders `.claude/agents/*.md`, `.opencode/agents/*.md` and `.codex/agents/*.toml` (prompt as `developer_instructions`). Prompts must not contain `'''`.
 - **Restrictions live in two places.** A limit set in a frontmatter block (tools, permissions) must also be stated in the prompt, because Codex has no per-subagent permissions and relies on the prompt alone. Change both together and keep the "Harness differences" table in `README.md` true.
 - **Invariants repeat on purpose** ("code says what, people say why", "do not judge the docs yourself", "only confirmed content is committed") in `docs-bootstrap`, `docs-check` and the agent prompts. Change all places at once.
+- **One definition of documents.** `docs-paths.mjs` decides which files are documents for both the snapshot and the leak check; change it there, never in one script only.
 - **`docs-check` is optional.** `docs-bootstrap` never runs it and must not depend on it or on `reader-tests.md`; it only mentions the check in the wrap-up. The check's template lives in `skills/docs-check/templates/`.
 - **The reader is a separate process, not a subagent.** `docs-check` starts it through `reader-run.mjs` with the harness's CLI (`claude -p --restricted`, `codex exec -s read-only`, `opencode run --pure`); `agents/docs-reader.md` is its prompt and, for OpenCode, its permissions (`mode: all`, because `opencode run --agent` falls back to the default agent for a subagent). A subagent shares the session's working directory and can find the solution in the current code. Change the CLI flags in the script, the skill and the README "Harness differences" table together.
 - **Commands in skills run in any shell.** One command per call, no `cd`, `&&`, pipes, redirects or Unix-only tools: users run bash, PowerShell and cmd. Anything longer goes into a Node script inside the skill (`scripts/` is copied with the skill folder).

@@ -67,10 +67,10 @@ Return these sections:
 
 Used by the `docs-check` skill when `reader-tests.md` has no tasks.
 
-Find 8–10 commits or merged PRs from the last 6–12 months matching: 2–8 files changed, 30–300 lines, one author, a meaningful message (not `fix`, not `wip`), changes in two or more layers (component + service, route + model), a test or verification command in the diff. Exclude refactorings, dependency bumps, config tweaks, framework version migrations. Look only at metadata and `--stat`: `git log --since --numstat`, `git show --stat`; do not open full diffs.
+Find 8–10 commits or merged PRs from the last 6–12 months matching: 2–8 files and 30–300 lines of code changed, counted without documentation, tests, lock files and generated files (a squash-merged PR is mostly those), one author, a meaningful message (not `fix`, not `wip`), changes in two or more layers (component + service, route + model), a test or verification command in the diff. Exclude refactorings, dependency bumps, config tweaks, framework version migrations. Look only at metadata and `--stat`: `git log --since --numstat`, `git show --stat`; do not open full diffs.
 
-Exclude commits whose new files from `--stat` are already mentioned in the repository's documents (`AGENTS.md`, `CLAUDE.md`, `CONTEXT*.md`, `docs/`): the documents know their answer.
+Exclude commits whose new files from `--stat` are mentioned in today's documents (`AGENTS.md`, `CLAUDE.md`, `CONTEXT*.md`, `docs/` at any depth) but were not in the documents at the parent commit: the documents learned their answer from the solution. A name the documents had before the commit is fine. Flag commits that also change documents (contracts, glossary, ADRs): the lead checks what they wrote.
 
 For each return: hash and date; whether it was made after the documents were written (dates in `docs/agents/bootstrap-state.md`, or the documents' first commits); parent commit; task wording from the commit message — without file names, hashes, ticket numbers or tracker links; a flag if the message does not say which object to change; expected files and areas of code and tests from `--stat`, without documentation files; verification commands from the package manifest or CI that run locally; project area. Group by area so that three can be picked from different ones.
 
-Write to `docs/agents/scratch/reader-test-candidates.md`; return one line with the number of candidates.
+Write to `docs/agents/scratch/reader-test-candidates.md`; return one line with the number of candidates and how many of them also change documents.
