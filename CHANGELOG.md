@@ -4,6 +4,10 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versions follo
 
 ## [Unreleased]
 
+### Changed
+- `docs-bootstrap`: the bundled guides in `vendor/` are opened as files at every stage that uses them, and the skill says not to load a skill of the same name (`grilling`, `domain-modeling`, `writing-for-agents`, `doc-coauthoring`, `diataxis-audit`) from a plugin, the user's folder or an older install, and to say so at the next stop if that happened. The scout's stage 1.5 brief says the same for `diataxis-audit`.
+- `install.mjs` `LEGACY` holds what 0.5.0 installed for `docs-bootstrap`, so 0.5.0 installs that lost marker lines stay recognised now that the skill changed.
+
 ## [0.5.0] - 2026-10-28
 
 ### Changed

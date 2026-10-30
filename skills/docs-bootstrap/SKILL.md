@@ -40,7 +40,14 @@ If the harness cannot start the `docs-scout` subagent, do the brief yourself but
 
 ## Bundled guides
 
-`vendor/` holds guides by other authors (`grilling`, `domain-modeling`, `writing-for-agents`, `doc-coauthoring`, `diataxis-audit`), unmodified except that each `SKILL.md` is renamed to `<name>.md`. They are not separate skills: read the file at the stage that names it and follow it, even if a skill with the same name is installed in the session — this kit is tested with these copies. When a brief names a file under `vendor/`, give the scout its full path: the scout does not know where this skill is installed. This skill's folder is `.claude/skills/docs-bootstrap` or `.agents/skills/docs-bootstrap` in the project, or the same under the home directory for a global install; if unsure, search for `vendor/diataxis-audit/diataxis-audit.md`.
+`vendor/` holds guides by other authors (`grilling`, `domain-modeling`, `writing-for-agents`, `doc-coauthoring`, `diataxis-audit`), unmodified except that each `SKILL.md` is renamed to `<name>.md`. They are files, not skills:
+
+- open the file the stage names with your file-reading tool and follow it;
+- never load a skill with one of these names, even if the session lists one. It comes from a plugin, the user's own folder or an older install of this kit, and may be a different version from the copy this kit is tested with;
+- if you notice you loaded one, say so at the next stop and continue from the file in `vendor/`;
+- where a guide's text says "skill" or "invoke", read it as the instructions for the current stage.
+
+When a brief names a file under `vendor/`, give the scout its full path: the scout does not know where this skill is installed. This skill's folder is `.claude/skills/docs-bootstrap` or `.agents/skills/docs-bootstrap` in the project, or the same under the home directory for a global install; if unsure, search for `vendor/diataxis-audit/diataxis-audit.md`.
 
 ## Stage 0. Session start
 
@@ -81,7 +88,7 @@ Skipped when `sources.md` lists no external sources, or the agent has no tools t
 **Scout.** Brief "Stage 2": draft terms from code with evidence and synonyms; name conflicts; ADR candidates from traces of decisions with reasons marked `ASSUMPTION`; comparison with facts from external docs (matches / differs / not in code).
 
 **You.**
-1. Read [vendor/grilling/grilling.md](vendor/grilling/grilling.md) and [vendor/domain-modeling/domain-modeling.md](vendor/domain-modeling/domain-modeling.md) and follow them.
+1. Open [vendor/grilling/grilling.md](vendor/grilling/grilling.md) and [vendor/domain-modeling/domain-modeling.md](vendor/domain-modeling/domain-modeling.md) as files and follow them. Do not load a `grilling` or `domain-modeling` skill instead (see [Bundled guides](#bundled-guides)).
 2. First decide single- or multi-context — the rule is in [CONTEXT-FORMAT.md](vendor/domain-modeling/CONTEXT-FORMAT.md).
 3. Interview along the tree: term conflicts → definitions → each ADR candidate (reason, rejected alternatives, still valid?) → open questions accumulated at stages 1–1.5.
 4. Write as you go: `CONTEXT.md` (or `CONTEXT-MAP.md` + one `CONTEXT.md` per context), `docs/adr/NNNN-slug.md`. No ADR without a confirmed reason.
@@ -108,14 +115,14 @@ A how-to is a step-by-step procedure for a recurring task: "add a migration", "a
 
 **You.** Show the list; the human picks the 3–7 most frequent. For each:
 - an up-to-date external page exists → transfer it to `docs/how-to/<slug>.md`, checking every step against the code;
-- an outdated one exists → read [vendor/doc-coauthoring/doc-coauthoring.md](vendor/doc-coauthoring/doc-coauthoring.md) and rewrite it with the human (stages Context Gathering and Refinement; its Reader Testing step is skipped; the optional `docs-check` skill covers it);
+- an outdated one exists → open [vendor/doc-coauthoring/doc-coauthoring.md](vendor/doc-coauthoring/doc-coauthoring.md) as a file, not a skill of that name, and rewrite it with the human (stages Context Gathering and Refinement; its Reader Testing step is skipped; the optional `docs-check` skill covers it);
 - none → do not write it from memory. List it as deferred: real team tasks will supply the material. If `docs/agents/reader-tests.md` exists, do not write how-tos from its tasks: a document written from a test task holds its answer, and the check on that task stops meaning anything.
 
 **Done when:** every step of every how-to points to an existing file or a command verified at stage 1; the deferred how-tos are listed in the state file.
 
 ## Stage 5. AGENTS.md
 
-**You.** Read [vendor/writing-for-agents/writing-for-agents.md](vendor/writing-for-agents/writing-for-agents.md) and follow it. Format — `agents-md-format.md`. Order:
+**You.** Open [vendor/writing-for-agents/writing-for-agents.md](vendor/writing-for-agents/writing-for-agents.md) as a file, not a skill of that name, and follow it. Format — `agents-md-format.md`. Order:
 1. Root `AGENTS.md`: up to 150 lines, only what is needed on every turn. Commands from stage 1, directory map from stage 3, pointers to `CONTEXT.md`, `docs/adr/`, `docs/how-to/`, `docs/architecture.md`.
 2. Nested `AGENTS.md` in large areas (an app in a monorepo, a big module): only rules specific to that area.
 3. Behaviour rules only from the human ("don't run e2e locally", "don't touch generated code").
@@ -135,7 +142,7 @@ There is no code, or very little, so there is nothing to reverse-engineer: all t
 
 ### N1. Interview the idea
 
-Read `grilling` and `domain-modeling` from `vendor/` as in stage 2. Tree: what the system does and for whom → the main entities and their names → boundaries (single- or multi-context per `CONTEXT-FORMAT.md`) → decisions already made before the start (stack, state, storage, integrations) with reasons and rejected alternatives. Rounds as in stage 2.
+Open the `grilling` and `domain-modeling` files in `vendor/` as in stage 2, not skills of those names. Tree: what the system does and for whom → the main entities and their names → boundaries (single- or multi-context per `CONTEXT-FORMAT.md`) → decisions already made before the start (stack, state, storage, integrations) with reasons and rejected alternatives. Rounds as in stage 2.
 
 **Write:** `CONTEXT.md` (or `CONTEXT-MAP.md`), `docs/adr/0001-…` onwards — only with a reason from a human. Also `docs/agents/sources.md` if the project already has external pages (spec, design).
 
@@ -149,7 +156,7 @@ From the design, not the code: C4 Context and Container per `c4-format.md`. A co
 
 ### N3. Starter AGENTS.md
 
-Read `writing-for-agents` from `vendor/` as in stage 5. Use [templates/AGENTS.starter.md](templates/AGENTS.starter.md): commands already in the manifest (the scout verifies them by running, brief "Stage 1", sections 1–2), the planned directory map, rules from the human, pointers to `CONTEXT.md`, `docs/adr/`, `docs/architecture.md`. The how-to section stays empty with the note "will appear after the first features". Handle `CLAUDE.md` as in stage 5, step 4.
+Open the `writing-for-agents` file in `vendor/` as in stage 5, not a skill of that name. Use [templates/AGENTS.starter.md](templates/AGENTS.starter.md): commands already in the manifest (the scout verifies them by running, brief "Stage 1", sections 1–2), the planned directory map, rules from the human, pointers to `CONTEXT.md`, `docs/adr/`, `docs/architecture.md`. The how-to section stays empty with the note "will appear after the first features". Handle `CLAUDE.md` as in stage 5, step 4.
 
 **Done when:** the file is within 80 lines; every command is verified; every rule is confirmed.
 

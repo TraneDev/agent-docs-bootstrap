@@ -77,6 +77,8 @@ const LEGACY = new Set([
   'fceff4c3b3159c80', 'fd975138dcda6b38', 'fe412d3c3c312f7a',
   // 0.4.0, 0.4.1
   '7f6ef4c3f161abfa',
+  // 0.5.0
+  '3b6063f1c9d67c1b',
 ]);
 
 const skills = skillDirs();

@@ -27,7 +27,7 @@ Use the tools the session has for the source listed in `docs/agents/sources.md` 
 
 **Batches 1..K — classification.** For each page in the range:
 1. Get the structure, if the source can return it without the body: section headings, presence of code, tables, step lists.
-2. Determine the Diátaxis type from title and structure (criteria — `vendor/diataxis-audit/diataxis-audit.md` in the `docs-bootstrap` skill folder; the lead gives its full path). Numbered steps → how-to; parameter and API tables → reference; "why" and history → explanation; learning from zero → tutorial; a mix → mixed.
+2. Determine the Diátaxis type from title and structure (criteria — `vendor/diataxis-audit/diataxis-audit.md` in the `docs-bootstrap` skill folder; the lead gives its full path. Open it as a file; do not load a `diataxis-audit` skill instead, it may be another version). Numbered steps → how-to; parameter and API tables → reference; "why" and history → explanation; learning from zero → tutorial; a mix → mixed.
 3. Only if the type is unclear, read the start of the body: at most 2000 characters. Read no further.
 4. Note whether the page refers to files or commands (code blocks, paths) — without checking; checks happen at stages 2 and 4.
 
