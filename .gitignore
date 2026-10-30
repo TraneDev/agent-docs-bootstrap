@@ -4,3 +4,12 @@ node_modules/
 .claude/
 CLAUDE.local.md
 .codex/
+
+# Local task tracking (beads), never published
+.beads/
+.dolt/
+*.db
+.beads-credential-key
+*.gate.lock*
+.agents/skills/beads/
+.cursor/
